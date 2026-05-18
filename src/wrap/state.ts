@@ -27,18 +27,39 @@ export function stateFilePath(repoRoot: string): string {
   return resolve(repoRoot, STATE_FILE);
 }
 
+function freshState(repoRoot: string): State {
+  return {
+    version: 1,
+    sessionStartedAt: new Date().toISOString(),
+    repoRoot,
+    agents: [],
+  };
+}
+
 export function loadState(repoRoot: string): State {
   const file = stateFilePath(repoRoot);
-  if (!existsSync(file)) {
-    return {
-      version: 1,
-      sessionStartedAt: new Date().toISOString(),
-      repoRoot,
-      agents: [],
-    };
-  }
+  if (!existsSync(file)) return freshState(repoRoot);
   const raw = readFileSync(file, "utf8");
-  return JSON.parse(raw) as State;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Treat a corrupted state file as a clean session — better than crashing
+    // every hook invocation until the user notices.
+    return freshState(repoRoot);
+  }
+  if (!isValidState(parsed)) return freshState(repoRoot);
+  return parsed;
+}
+
+function isValidState(value: unknown): value is State {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Partial<State>;
+  if (v.version !== 1) return false;
+  if (typeof v.repoRoot !== "string") return false;
+  if (typeof v.sessionStartedAt !== "string") return false;
+  if (!Array.isArray(v.agents)) return false;
+  return true;
 }
 
 export function saveState(repoRoot: string, state: State): void {

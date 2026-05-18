@@ -37,11 +37,28 @@ export interface WorktreeListEntry {
 }
 
 const SAFE_NAME = /[^a-zA-Z0-9._-]+/g;
+const RESERVED_NAMES = new Set([".", "..", "HEAD"]);
 
 export function sanitizeName(name: string): string {
-  const slug = name.replace(SAFE_NAME, "-").replace(/^-+|-+$/g, "");
+  const slug = name.replace(SAFE_NAME, "-").replace(/^[-.]+|[-.]+$/g, "");
   if (!slug) throw new Error(`worktree name resolves to empty slug: ${name}`);
+  if (RESERVED_NAMES.has(slug)) {
+    throw new Error(`worktree name '${name}' resolves to reserved slug '${slug}'`);
+  }
+  // Belt-and-braces: even though we stripped leading dots and dashes,
+  // double-check the slug contains no path-traversal sequences.
+  if (slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
+    throw new Error(`worktree name '${name}' contains path-separator or traversal chars`);
+  }
   return slug;
+}
+
+const REFNAME_RE = /^[\w][\w./-]{0,199}$/;
+
+export function assertValidRef(ref: string): void {
+  if (!REFNAME_RE.test(ref)) {
+    throw new Error(`invalid git ref '${ref}' — expected ^[\\w][\\w./-]{0,199}$`);
+  }
 }
 
 export function defaultBasePath(repoRoot: string): string {
@@ -71,13 +88,16 @@ export class WorktreeManager {
     const path = join(basePath, safeName);
 
     const baseRef = opts.baseRef ?? (await this.resolveHead());
+    assertValidRef(baseRef);
 
     if (existsSync(path)) {
       throw new Error(`worktree path already exists: ${path}`);
     }
     mkdirSync(dirname(path), { recursive: true });
 
-    await this.git.raw(["worktree", "add", "-b", branch, path, baseRef]);
+    // `--` separator stops git from interpreting baseRef as a flag even if
+    // the allowlist regex is somehow bypassed.
+    await this.git.raw(["worktree", "add", "-b", branch, path, "--", baseRef]);
 
     return { name: safeName, path: normalizePath(path), branch, baseRef };
   }
@@ -111,8 +131,18 @@ export class WorktreeManager {
     const status = await sub.status();
     if (status.files.length === 0) return null;
     await sub.add(["-A"]);
-    const result = await sub.commit(message, [], { "--no-verify": null });
-    return result.commit || null;
+    // Re-check after staging — `add -A` may produce no staged delta on Windows
+    // when the only changes are CRLF normalisation, in which case `commit`
+    // exits non-zero and would crash the post-spawn hook.
+    const afterAdd = await sub.status();
+    if (afterAdd.staged.length === 0) return null;
+    try {
+      const result = await sub.commit(message, [], { "--no-verify": null });
+      return result.commit || null;
+    } catch (err) {
+      if (process.env.WISP_DEBUG) process.stderr.write(`commitPending: ${String(err)}\n`);
+      return null;
+    }
   }
 
   /**

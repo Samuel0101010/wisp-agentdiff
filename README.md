@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Samuel0101010/wisp-agentdiff/releases"><img src="https://img.shields.io/badge/Release-v0.9.0-C2A148?style=for-the-badge" alt="Release v0.9.0"></a>
+  <a href="https://github.com/Samuel0101010/wisp-agentdiff/releases"><img src="https://img.shields.io/badge/Release-v1.0.0-C2A148?style=for-the-badge" alt="Release v1.0.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Node-%3E%3D20-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node >=20">
@@ -17,17 +17,49 @@
 
 # wisp-agentdiff
 
-> Per-agent diffs for Claude Code parallel subagent workflows.
+Per-agent diffs for Claude Code parallel subagent workflows.
 
-<!-- demo-gif-placeholder: docs/demo.gif (autoplay, <5MB) — generated via `vhs scripts/demo.tape` before public release -->
+Claude Code can fan out five subagents in parallel, each in its own git
+worktree. When one of them goes rogue, the current workflow gives you one
+button: keep everything, or throw everything away. `wisp-agentdiff` adds
+the missing step in between — a tabbed TUI where each subagent's diff,
+token usage, and tool-call list lives on its own pane, and one keystroke
+approves, reverts, or merges it.
 
-**Status:** Pre-release (private repo until v1.0.0). [Build roadmap →](./CLAUDE.md)
+Five subagents refactor the auth module. Four edit cleanly; agent 3 also
+rewrites `src/db/pool.ts` for no good reason. Open the review, press `n`
+to step to agent 3, `r` to revert it, `m` to merge the other four. The
+pool file never enters the working tree. If two approved agents touched
+the same file, the merge refuses and points at the conflict — no silent
+merge markers, no theirs/ours guessing.
 
-When Claude Code spawns multiple subagents in parallel under isolated
-worktrees, you currently only get an all-or-nothing cleanup decision.
-`wisp-agentdiff` adds the review layer: a tabbed TUI with per-agent diff,
-token usage, tool-call list, cross-agent conflict detection, and single-key
-approve / revert / merge.
+## What it looks like
+
+```
+┌─ wisp-agentdiff ─ 5 agents ─────────────────────────────────────┐
+│ ▍1. auth ✓   2. api ✓   3. db ⚠   4. tests ·   5. docs ·       │
+├─────────────────────────────────────────────────────────────────┤
+│ 7 files  +142 -38 · 14,203 tok  38 tools · branch agent-db ⚠1   │
+│ line 1–18 of 96 · 3 files · +42 -8                              │
+│ ── modified  src/db/pool.ts                                     │
+│ @@ -22,7 +22,9 @@ export class Pool {                           │
+│   constructor(opts: Opts) {                                     │
+│     this.url = opts.url;                                        │
+│ +   this.retries = opts.retries ?? 3;                           │
+│ +   this.timeoutMs = opts.timeoutMs ?? 5_000;                   │
+│     this.client = makeClient(opts);                             │
+│   }                                                             │
+│ ── modified  src/db/session.ts                                  │
+│ @@ -3,6 +3,7 @@ export function open(pool: Pool): Session {     │
+│   return {                                                      │
+│     id: nanoid(),                                               │
+│ +   createdAt: new Date(),                                      │
+│     pool,                                                       │
+│   };                                                            │
+├─────────────────────────────────────────────────────────────────┤
+│ [a]pprove [r]evert [n]ext [p]rev [c]onflict [m]erge [j/k] [q]   │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Install
 
@@ -35,20 +67,32 @@ approve / revert / merge.
 npx wisp-agentdiff install
 ```
 
-That copies the `wisp-agentdiff` skill and `/review-agents` slash command
-into `~/.claude/` and prints a one-time `settings.json` hook snippet you add
-to wire the native `WorktreeCreate` / `WorktreeRemove` events.
+That deploys the SKILL and `/review-agents` slash command into `~/.claude/`
+and prints a hook snippet. Paste the snippet into `~/.claude/settings.json`
+once:
+
+```jsonc
+{
+  "hooks": {
+    "WorktreeCreate": "wisp-agentdiff hook worktree-create",
+    "WorktreeRemove": "wisp-agentdiff hook worktree-remove"
+  }
+}
+```
+
+From then on, every subagent Claude Code spawns with
+`isolation: worktree` in its frontmatter is captured automatically.
 
 ## Use
 
-After a Claude Code session spawns 2+ subagents with `isolation: worktree`:
+After a Claude Code session has run 2+ subagents:
 
 ```bash
 wisp-agentdiff review
 ```
 
-— or say "review the agents" / "show me what each agent did" in chat and the
-skill triggers it for you, or type `/review-agents`.
+— or say *"review the agents"* / *"show me what each agent did"* in chat
+and the skill triggers it for you, or type `/review-agents`.
 
 ### Hotkeys
 
@@ -57,53 +101,66 @@ skill triggers it for you, or type `/review-agents`.
 | `a` | approve active agent (auto-advances) |
 | `r` | revert active agent (auto-advances) |
 | `n` / `p` | next / previous agent |
-| `c` | toggle conflict view |
+| `c` | toggle cross-agent conflict view |
 | `m` | merge all approved agents into HEAD |
 | `j` / `k` | scroll diff |
 | `q` | quit |
 
 ### Conflict gating
 
-If two approved agents touch the same file, the merge step refuses and asks
-you to revert one side first. No silent conflict markers, no `theirs` /
-`ours` guessing.
+If two approved agents touched the same file, the merge step refuses and
+shows you the overlap. You revert one side, then re-press `m`. The tool
+will not write conflict markers, will not pick a winner, and will not
+half-merge then abort — either all approved agents land or none do.
 
 ## How it works
 
 ```
-Claude Code subagent ─► WorktreeCreate hook ─► wisp-agentdiff records agent
+Claude Code subagent ─► WorktreeCreate hook ─► wisp-agentdiff registers agent
                                    │
                                    ▼
                        isolated git worktree
                                    │
-                Subagent edits, transcript JSONL captured
+                Subagent edits + JSONL transcript captured
                                    │
                                    ▼
-            WorktreeRemove hook ─► capture diff + remove worktree
+            WorktreeRemove hook ─► capture diff, remove worktree
                                    │
                                    ▼
               wisp-agentdiff review ─► tabbed TUI → [m] merges approved
 ```
 
-Full architecture: [docs/architecture.md](./docs/architecture.md).
+We hook into Claude Code's native worktree lifecycle rather than wrapping
+`git worktree add` ourselves, so the integration survives upstream Claude
+Code changes and respects `.worktreeinclude`. Full architecture:
+[`docs/architecture.md`](docs/architecture.md).
 
-## Differentiator
+## Why not tazuna / plural / cwt
 
-`tazuna`, `plural`, and `cwt` are worktree orchestrators — they spawn
-isolated sessions but treat the diff as a one-branch afterthought. Native
-Claude Code worktrees give you the isolation primitive but stop short of any
-review surface. `wisp-agentdiff` owns the review layer: aggregated TUI,
-per-agent telemetry, cross-agent conflict detection, approve/revert/merge.
+`tazuna`, `plural`, and `cwt` are worktree *orchestrators* — they spawn
+isolated sessions but stop at isolation and leave the diff to `git diff`
+by hand. Native Claude Code worktrees give you the isolation primitive
+but no review surface — cleanup is all-or-nothing.
+`wisp-agentdiff` fills the review step: aggregated TUI, per-agent token
++ tool-call telemetry, cross-agent conflict detection, single-key
+approve / revert / merge.
+
+## Status & roadmap
+
+v1.0 ships the core loop. Backlog and open questions live in
+[`docs/roadmap.md`](docs/roadmap.md). Issues and PRs welcome.
 
 ## Develop
 
 ```bash
 npm install
 npm run check          # lint + typecheck + test + build
-npm run dev            # watch build
-npm run test:watch     # watch tests
+npm run test:watch     # iterating on a single module
+npm run dev            # tsup watch build
 ```
+
+CI matrix: Linux / macOS / Windows × Node 20 + 22.
 
 ## License
 
-MIT.
+MIT — see [`LICENSE`](LICENSE).

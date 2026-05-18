@@ -1,18 +1,21 @@
 {
   "name": "wisp-agentdiff",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Per-agent diffs for Claude Code parallel subagent workflows",
   "type": "module",
   "bin": {
     "wisp-agentdiff": "./dist/index.js"
   },
-  "main": "./dist/index.js",
   "files": [
     "dist",
     "templates",
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -29,15 +32,22 @@
     "node": ">=20"
   },
   "keywords": [
+    "claude",
     "claude-code",
+    "anthropic",
     "subagents",
+    "agents",
+    "git",
     "git-worktree",
+    "worktree",
     "diff",
+    "code-review",
     "tui",
+    "ink",
     "review",
     "cli"
   ],
-  "author": "Samuel Heftberger <noreply@github.invalid>",
+  "author": "Samuel Heftberger <215513082+Samuel0101010@users.noreply.github.com>",
   "license": "MIT",
   "repository": {
     "type": "git",

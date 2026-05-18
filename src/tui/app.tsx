@@ -1,6 +1,6 @@
 import { Box, Text, useApp, useInput } from "ink";
 import type React from "react";
-import { useCallback, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { type MergeResult, applyApproved } from "../merge/approver.js";
 import { detectConflicts } from "../merge/conflict-detector.js";
 import { ConflictView } from "./conflict-view.js";
@@ -74,7 +74,9 @@ export const App: React.FC<AppProps> = ({
     if (action.type === "merge") void triggerMerge();
   });
 
-  onStateChange?.(state);
+  useEffect(() => {
+    onStateChange?.(state);
+  }, [state, onStateChange]);
 
   const active = agents[state.activeIndex];
   const conflictsForActive = conflicts.filter((c) =>

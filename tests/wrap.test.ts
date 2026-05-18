@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { handleWorktreeRemove } from "../src/wrap/post-spawn-hook.js";
 import { handleWorktreeCreate } from "../src/wrap/pre-spawn-hook.js";
 import { loadState, stateFilePath } from "../src/wrap/state.js";
-import { WorktreeManager, sanitizeName } from "../src/wrap/worktree-manager.js";
+import { WorktreeManager, assertValidRef, sanitizeName } from "../src/wrap/worktree-manager.js";
 import { type TempRepo, makeTempRepo } from "./helpers/temp-repo.js";
 
 describe("WorktreeManager", () => {
@@ -55,6 +55,32 @@ describe("sanitizeName", () => {
   });
   it("rejects empty slugs", () => {
     expect(() => sanitizeName("///")).toThrow();
+  });
+  it("rejects path-traversal and reserved names", () => {
+    // ".." / "." strip down to an empty slug (after leading-dot trim) → rejected
+    expect(() => sanitizeName("..")).toThrow(/empty slug|reserved|traversal/);
+    expect(() => sanitizeName(".")).toThrow();
+    // "../escape" normalises to "escape" — safe, no slashes survive
+    expect(sanitizeName("../escape")).toBe("escape");
+    // Leading dot is stripped, so ".hidden" → "hidden"
+    expect(sanitizeName(".hidden")).toBe("hidden");
+    expect(() => sanitizeName("HEAD")).toThrow(/reserved/);
+  });
+});
+
+describe("assertValidRef", () => {
+  it("accepts ordinary refs", () => {
+    expect(() => assertValidRef("main")).not.toThrow();
+    expect(() => assertValidRef("HEAD")).not.toThrow();
+    expect(() => assertValidRef("feature/x.y-z")).not.toThrow();
+    expect(() => assertValidRef("a".repeat(200))).not.toThrow();
+  });
+  it("rejects flags, spaces, and over-long refs", () => {
+    expect(() => assertValidRef("--detach")).toThrow();
+    expect(() => assertValidRef("-B")).toThrow();
+    expect(() => assertValidRef("foo bar")).toThrow();
+    expect(() => assertValidRef("a".repeat(201))).toThrow();
+    expect(() => assertValidRef("")).toThrow();
   });
 });
 

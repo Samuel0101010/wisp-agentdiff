@@ -17,9 +17,11 @@ tmp/
 .claude/wisp-agentdiff-state.json
 .claude/settings.local.json
 
-# Ruflo / agentdb scratch
+# Local AI-agent scratch (not part of the published package)
 .swarm/
 agentdb.rvf
 agentdb.rvf.lock
 .ruflo/
+CLAUDE.local.md
+docs/launch-checklist.md
 

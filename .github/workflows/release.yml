@@ -11,6 +11,11 @@ jobs:
     permissions:
       contents: write
       id-token: write
+    # Job-level env so step-level `if:` can read NODE_AUTH_TOKEN — step env
+    # is not materialised until after `if:` evaluates, which silently
+    # disables the publish step.
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,8 +31,6 @@ jobs:
         #   - NPM_TOKEN secret is not configured (pre-launch, dry runs)
         if: ${{ !contains(github.ref, '-') && env.NODE_AUTH_TOKEN != '' }}
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:

@@ -20,9 +20,14 @@ program
   .option("--target <dir>", "override target directory (default ~/.claude or $CLAUDE_CONFIG_DIR)")
   .action(async (opts: { target?: string }) => {
     const { installArtifacts } = await import("./install.js");
-    installArtifacts({
-      ...(opts.target ? { targetDir: opts.target } : {}),
-    });
+    try {
+      installArtifacts({
+        ...(opts.target ? { targetDir: opts.target } : {}),
+      });
+    } catch (err) {
+      process.stderr.write(`install failed: ${err instanceof Error ? err.message : String(err)}\n`);
+      process.exit(1);
+    }
   });
 
 program
@@ -64,8 +69,19 @@ hook
     process.stdout.write(`${JSON.stringify(result)}\n`);
   });
 
+const MAX_STDIN_BYTES = 1 * 1024 * 1024; // 1 MiB — Claude Code hook payloads are tiny
+
 function readStdinJson<T>(): T {
-  const raw = readFileSync(0, "utf8").trim();
+  if (process.stdin.isTTY) {
+    throw new Error(
+      "expected JSON payload on stdin (hooks pipe their payload — don't invoke this subcommand interactively)",
+    );
+  }
+  const buf = readFileSync(0);
+  if (buf.length > MAX_STDIN_BYTES) {
+    throw new Error(`stdin payload exceeds ${MAX_STDIN_BYTES} bytes`);
+  }
+  const raw = buf.toString("utf8").trim();
   if (!raw) throw new Error("expected JSON payload on stdin");
   return JSON.parse(raw) as T;
 }
