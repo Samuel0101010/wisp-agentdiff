@@ -192,10 +192,10 @@ gh release create v1.0.0 --title "v1.0.0 — Public Launch" --notes-file docs/la
 - [x] Commit + push + tag `v0.5.0`
 
 ### Phase 6 — Merge-Logik
-- [ ] `src/merge/approver.ts` — apply approved branches sequentially to main worktree
-- [ ] Konflikt-Handling: bei conflict, ask user oder auto-revert problem-agent
-- [ ] Tests
-- [ ] Commit + push + tag `v0.6.0`
+- [x] `src/merge/approver.ts` — apply approved branches sequentially to main worktree
+- [x] Konflikt-Handling: bei conflict, ask user oder auto-revert problem-agent
+- [x] Tests
+- [x] Commit + push + tag `v0.6.0`
 
 ### Phase 7 — Skill + Slash-Command + Install
 - [ ] `.claude/skills/wisp-agentdiff/SKILL.md` — description triggert auf "review agents", "show what each agent did"
@@ -299,7 +299,7 @@ Dort liegen die ursprünglichen Pain-Point-Belege + Differentiator-Argumente.
 
 ## Status-Tracking
 
-**Aktuelle Phase:** 6 (Merge-Logik)
-**Nächste Action:** approver applies approved branches, refuses on conflict.
+**Aktuelle Phase:** 7 (Skill + slash command + install)
+**Nächste Action:** SKILL.md, slash-command, npx wisp-agentdiff install.
 **Blocker:** keine
-**Letzter Release-Tag:** v0.5.0 (prerelease, 2026-05-18)
+**Letzter Release-Tag:** v0.6.0 (prerelease, 2026-05-18)

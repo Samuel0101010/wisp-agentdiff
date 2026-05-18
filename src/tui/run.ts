@@ -9,6 +9,6 @@ export interface RunOptions {
 
 export async function runReviewTui(options: RunOptions): Promise<void> {
   const agents = await loadSession(options.repoRoot);
-  const instance = render(React.createElement(App, { agents }));
+  const instance = render(React.createElement(App, { agents, repoRoot: options.repoRoot }));
   await instance.waitUntilExit();
 }

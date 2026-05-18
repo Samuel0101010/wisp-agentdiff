@@ -37,7 +37,6 @@ export const DiffView: React.FC<DiffViewProps> = ({ report, scroll, viewportLine
         · +{report.diff.totals.additions} -{report.diff.totals.deletions}
       </Text>
       {slice.map((row, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: diff rows are positional; identical text repeats legitimately
         <Text key={`${start}-${i}-${row.kind}`} color={rowColor(row.kind)}>
           {row.text}
         </Text>
