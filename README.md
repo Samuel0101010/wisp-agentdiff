@@ -35,31 +35,23 @@ merge markers, no theirs/ours guessing.
 
 ## What it looks like
 
-```
-┌─ wisp-agentdiff ─ 5 agents ─────────────────────────────────────┐
-│ ▍1. auth ✓   2. api ✓   3. db ⚠   4. tests ·   5. docs ·       │
-├─────────────────────────────────────────────────────────────────┤
-│ 7 files  +142 -38 · 14,203 tok  38 tools · branch agent-db ⚠1   │
-│ line 1–18 of 96 · 3 files · +42 -8                              │
-│ ── modified  src/db/pool.ts                                     │
-│ @@ -22,7 +22,9 @@ export class Pool {                           │
-│   constructor(opts: Opts) {                                     │
-│     this.url = opts.url;                                        │
-│ +   this.retries = opts.retries ?? 3;                           │
-│ +   this.timeoutMs = opts.timeoutMs ?? 5_000;                   │
-│     this.client = makeClient(opts);                             │
-│   }                                                             │
-│ ── modified  src/db/session.ts                                  │
-│ @@ -3,6 +3,7 @@ export function open(pool: Pool): Session {     │
-│   return {                                                      │
-│     id: nanoid(),                                               │
-│ +   createdAt: new Date(),                                      │
-│     pool,                                                       │
-│   };                                                            │
-├─────────────────────────────────────────────────────────────────┤
-│ [a]pprove [r]evert [n]ext [p]rev [c]onflict [m]erge [j/k] [q]   │
-└─────────────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/assets/screenshot-1-opening.png" alt="wisp-agentdiff review — opening with 5 agents pending" width="720">
+</p>
+
+<p align="center"><em>Opening — five subagents recorded, viewing <code>auth</code>'s diff.</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-2-decisions.png" alt="wisp-agentdiff after approving four and reverting the rogue db agent" width="720">
+</p>
+
+<p align="center"><em>After <code>a a r a a</code> — <code>db</code> is reverted because it rewrote <code>src/db/pool.ts</code> for no good reason.</em></p>
+
+<p align="center">
+  <img src="docs/assets/screenshot-3-conflict.png" alt="wisp-agentdiff conflict view — db and api both touched src/db/pool.ts" width="720">
+</p>
+
+<p align="center"><em>Conflict view — <code>db</code> and <code>api</code> both touched <code>src/db/pool.ts</code>. The merge step refuses until one side is reverted.</em></p>
 
 ## Install
 

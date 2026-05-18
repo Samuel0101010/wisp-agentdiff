@@ -1,13 +1,14 @@
 # vhs script for docs/demo.gif
-# usage: vhs scripts/demo.tape
-# requires: vhs (https://github.com/charmbracelet/vhs) + node 20+ in PATH
+# usage: vhs scripts/demo.tape  (from the repo root)
+# requires: vhs >= 0.7 (https://github.com/charmbracelet/vhs) + node 20+
 #
-# Shot list (per CLAUDE.md):
-#   0–3s   "Spawn 5 agents to refactor auth module"
-#   3–10s  5 Tasks running in parallel (status pill animation)
-#   10–15s agents complete, /review-agents opens TUI
-#   15–25s tab through 5 agents, approve 4, revert 1
-#   25–30s [m] merges → green confirmation
+# Shot list (auto-advance on approve/revert keeps the rhythm tight):
+#   ─ intro line typed
+#   ─ wisp-agentdiff review  → 5 agents
+#   ─ a a r a a               → approve 4, revert the rogue 'db' agent
+#   ─ c                       → conflict view (db vs api both touched pool.ts)
+#   ─ c                       → back to diff
+#   ─ q                       → quit
 
 Output docs/demo.gif
 
@@ -15,60 +16,61 @@ Set FontSize 14
 Set Width 1100
 Set Height 640
 Set Theme "Catppuccin Mocha"
-Set Padding 20
+Set Padding 24
 Set Framerate 24
 Set PlaybackSpeed 1.0
-Set TypingSpeed 30ms
+Set TypingSpeed 32ms
 
-# --- Scene 1: explain ---
-Type "# 5 Claude subagents ran in parallel. One went rogue."
+# Seed the synthetic 5-agent session silently before recording.
+Hide
+Type "node dist/index.js demo --repo . > /dev/null"
+Enter
+Sleep 600ms
+Show
+
+# Scene 1 — intro
+Type "# 5 Claude subagents ran in parallel.  One went rogue."
 Sleep 1500ms
 Enter
-Type "# wisp-agentdiff lets you approve / revert each one."
+Type "# wisp-agentdiff lets you approve or revert each one."
 Sleep 1500ms
 Enter
+Type "clear"
 Enter
-
-# --- Scene 2: open the TUI (against a pre-seeded session) ---
-Type "wisp-agentdiff review"
-Sleep 400ms
-Enter
-Sleep 1500ms
-
-# --- Scene 3: tab through agents ---
-Type "n"
-Sleep 700ms
-Type "n"
-Sleep 700ms
-Type "j"
 Sleep 200ms
-Type "j"
-Sleep 200ms
-Type "j"
-Sleep 700ms
 
-# --- Scene 4: decisions ---
+# Scene 2 — open the TUI
+Type "node dist/index.js review --repo ."
+Sleep 300ms
+Enter
+Sleep 1500ms
+
+# Scene 3 — scroll the first agent's diff so the user sees real content
+Type "j"
+Sleep 250ms
+Type "j"
+Sleep 250ms
+Type "j"
+Sleep 800ms
+
+# Scene 4 — decisions.  Auto-advance moves to the next agent after each keystroke.
 Type "a"
-Sleep 600ms
+Sleep 700ms
 Type "a"
-Sleep 600ms
-Type "a"
-Sleep 600ms
+Sleep 700ms
 Type "r"
-Sleep 800ms
+Sleep 1000ms
 Type "a"
+Sleep 700ms
+Type "a"
+Sleep 1200ms
+
+# Scene 5 — conflict view (db rewrites pool.ts, api also touched it)
+Type "c"
+Sleep 2000ms
+Type "c"
 Sleep 800ms
 
-# --- Scene 5: conflicts ---
-Type "c"
-Sleep 1200ms
-Type "c"
-Sleep 600ms
-
-# --- Scene 6: merge ---
-Type "m"
-Sleep 1500ms
-
-# --- Scene 7: exit ---
+# Scene 6 — exit
 Type "q"
-Sleep 500ms
+Sleep 400ms

@@ -39,6 +39,16 @@ program
     await runReviewTui({ repoRoot: opts.repo });
   });
 
+program
+  .command("demo")
+  .description("Seed a synthetic 5-agent session so 'review' has data (used by the demo GIF)")
+  .option("--repo <dir>", "repository root", process.cwd())
+  .action(async (opts: { repo: string }) => {
+    const { seedDemo } = await import("./demo.js");
+    seedDemo(opts.repo);
+    process.stdout.write("seeded demo state — run: wisp-agentdiff review\n");
+  });
+
 const hook = program
   .command("hook")
   .description("Native Claude Code worktree hook entry points (stdin JSON → stdout JSON)");
