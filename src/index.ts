@@ -1,14 +1,18 @@
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { handleWorktreeRemove } from "./wrap/post-spawn-hook.js";
 import { handleWorktreeCreate } from "./wrap/pre-spawn-hook.js";
+
+const PKG_VERSION = readPackageVersion();
 
 const program = new Command();
 
 program
   .name("wisp-agentdiff")
   .description("Per-agent diffs for Claude Code parallel subagent workflows")
-  .version("0.1.0");
+  .version(PKG_VERSION);
 
 program
   .command("install")
@@ -64,6 +68,17 @@ function readStdinJson<T>(): T {
   const raw = readFileSync(0, "utf8").trim();
   if (!raw) throw new Error("expected JSON payload on stdin");
   return JSON.parse(raw) as T;
+}
+
+function readPackageVersion(): string {
+  try {
+    const thisFile = fileURLToPath(import.meta.url);
+    const pkgPath = join(dirname(thisFile), "..", "package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
 }
 
 program.parseAsync(process.argv).catch((err: unknown) => {
