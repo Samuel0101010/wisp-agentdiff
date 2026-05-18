@@ -147,27 +147,27 @@ gh release create v1.0.0 --title "v1.0.0 — Public Launch" --notes-file docs/la
 ## Build-Roadmap (Checkboxen — abhaken nach Completion)
 
 ### Phase 0 — Pre-Flight (Discovery + Reference Study)
-- [ ] Lies https://github.com/oshiteku/tazuna README (welche Patterns lohnen sich zu klauen)
-- [ ] Lies https://github.com/zhubert/plural — wie macht es Multi-Worktree-Review
-- [ ] Lies Anthropic-Docs zu nativem Worktree-Support (https://code.claude.com/docs/en/worktrees)
-- [ ] Lies Anthropic-Docs zu Skill-Format + Auto-Trigger (https://www.anthropic.com/news/skills)
-- [ ] Lies Ink-Quickstart (https://github.com/vadimdemedes/ink)
+- [x] Lies https://github.com/oshiteku/tazuna README (welche Patterns lohnen sich zu klauen)
+- [x] Lies https://github.com/zhubert/plural — wie macht es Multi-Worktree-Review
+- [x] Lies Anthropic-Docs zu nativem Worktree-Support (https://code.claude.com/docs/en/worktrees)
+- [x] Lies Anthropic-Docs zu Skill-Format + Auto-Trigger (https://www.anthropic.com/news/skills)
+- [x] Lies Ink-Quickstart (https://github.com/vadimdemedes/ink)
 
 ### Phase 1 — Setup
-- [ ] Repo erstellen: `gh repo create wisp-agentdiff --private`
-- [ ] `npm init -y`, `tsconfig.json` mit strict mode
-- [ ] tsup + vitest + biome dev-deps installieren
-- [ ] `.github/workflows/test.yml` (Node 20, lint + test + build)
-- [ ] `.github/workflows/release.yml` (auf tag `v*` → npm publish + gh release)
-- [ ] README skeleton mit Tagline + Install + Demo-Placeholder
-- [ ] `gh release create v0.1.0 --prerelease`
+- [x] Repo erstellen: `gh repo create wisp-agentdiff --private`
+- [x] `npm init -y`, `tsconfig.json` mit strict mode
+- [x] tsup + vitest + biome dev-deps installieren
+- [x] `.github/workflows/test.yml` (Node 20, lint + test + build)
+- [x] `.github/workflows/release.yml` (auf tag `v*` → npm publish + gh release)
+- [x] README skeleton mit Tagline + Install + Demo-Placeholder
+- [x] `gh release create v0.1.0 --prerelease`
 
 ### Phase 2 — Subagent-Wrapper (Pre/Post-Spawn-Hooks)
-- [ ] `src/wrap/worktree-manager.ts` — create/list/remove worktrees
-- [ ] `src/wrap/pre-spawn-hook.ts` — Task-Tool detect, create worktree mit branch `wisp-agentdiff/agent-<id>`
-- [ ] `src/wrap/post-spawn-hook.ts` — bei Subagent-Completion: auto-commit alle Changes im Worktree
-- [ ] Tests: spawn fake agent, assert worktree created + cleaned-up
-- [ ] Commit + push + tag `v0.2.0`
+- [x] `src/wrap/worktree-manager.ts` — create/list/remove worktrees
+- [x] `src/wrap/pre-spawn-hook.ts` — Task-Tool detect, create worktree mit branch `wisp-agentdiff/agent-<id>`
+- [x] `src/wrap/post-spawn-hook.ts` — bei Subagent-Completion: auto-commit alle Changes im Worktree
+- [x] Tests: spawn fake agent, assert worktree created + cleaned-up
+- [x] Commit + push + tag `v0.2.0`
 
 ### Phase 3 — Diff Collection
 - [ ] `src/collect/diff-parser.ts` — `git diff main..wisp-agentdiff/agent-<id>` → JSON (files, +lines, -lines, hunks)
@@ -299,7 +299,7 @@ Dort liegen die ursprünglichen Pain-Point-Belege + Differentiator-Argumente.
 
 ## Status-Tracking
 
-**Aktuelle Phase:** 0 (Pre-Flight)
-**Nächste Action:** Phase 0 Checkboxen abarbeiten, dann Phase 1 starten.
+**Aktuelle Phase:** 3 (Diff Collection)
+**Nächste Action:** diff-parser, jsonl-reader, token-tracker.
 **Blocker:** keine
-**Letzter Release-Tag:** —
+**Letzter Release-Tag:** v0.2.0 (prerelease, 2026-05-18)
