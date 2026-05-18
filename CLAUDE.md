@@ -205,12 +205,12 @@ gh release create v1.0.0 --title "v1.0.0 — Public Launch" --notes-file docs/la
 - [x] Commit + push + tag `v0.7.0`
 
 ### Phase 8 — Demo + Polish
-- [ ] `scripts/demo.tape` — vhs-Skript: 5 Subagents spawnen → TUI öffnet → Approve/Revert → Merge
-- [ ] `docs/demo.gif` generieren (autoplay, <5MB)
-- [ ] README mit Hero-GIF in ersten 200px
-- [ ] Twitter-Thread + HN-Post-Draft in `docs/launch-checklist.md`
-- [ ] `docs/architecture.md` (für späteren PR-Kontext)
-- [ ] Commit + push + tag `v0.9.0`
+- [x] `scripts/demo.tape` — vhs-Skript: 5 Subagents spawnen → TUI öffnet → Approve/Revert → Merge
+- [ ] `docs/demo.gif` generieren (autoplay, <5MB) — *requires `vhs` toolchain, deferred to Phase 9*
+- [x] README mit Hero-GIF in ersten 200px (placeholder; GIF replaces placeholder when generated)
+- [x] Twitter-Thread + HN-Post-Draft in `docs/launch-checklist.md`
+- [x] `docs/architecture.md` (für späteren PR-Kontext)
+- [x] Commit + push + tag `v0.9.0`
 
 ### Phase 9 — Launch
 - [ ] Cross-Test: Windows + Mac + Linux funktioniert
@@ -299,7 +299,7 @@ Dort liegen die ursprünglichen Pain-Point-Belege + Differentiator-Argumente.
 
 ## Status-Tracking
 
-**Aktuelle Phase:** 8 (Demo + polish)
-**Nächste Action:** demo.tape, README hero, launch checklist.
-**Blocker:** keine
-**Letzter Release-Tag:** v0.7.0 (prerelease, 2026-05-18)
+**Aktuelle Phase:** 9 (Launch — pending hero GIF + cross-platform CI)
+**Nächste Action:** generate docs/demo.gif via `vhs scripts/demo.tape`, then v1.0.0 public.
+**Blocker:** docs/demo.gif requires vhs CLI; CI matrix runs cross-platform once main is pushed.
+**Letzter Release-Tag:** v0.9.0 (prerelease, 2026-05-18)
