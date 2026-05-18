@@ -177,13 +177,13 @@ gh release create v1.0.0 --title "v1.0.0 — Public Launch" --notes-file docs/la
 - [x] Commit + push + tag `v0.3.0`
 
 ### Phase 4 — TUI (Ink)
-- [ ] `src/tui/app.tsx` — Ink Root mit Pane-State
-- [ ] `src/tui/tab-bar.tsx` — Top-Bar mit Agent-Tabs (1–N)
-- [ ] `src/tui/diff-view.tsx` — Pro-Tab Diff-Pane mit syntax highlighting
-- [ ] `src/tui/hotkeys.ts` — a/r/n/c/m hotkeys
-- [ ] `src/tui/styles.ts` — minimal theme (3 colors max)
-- [ ] Manual-Test mit Mock-Data
-- [ ] Commit + push + tag `v0.4.0`
+- [x] `src/tui/app.tsx` — Ink Root mit Pane-State
+- [x] `src/tui/tab-bar.tsx` — Top-Bar mit Agent-Tabs (1–N)
+- [x] `src/tui/diff-view.tsx` — Pro-Tab Diff-Pane mit syntax highlighting
+- [x] `src/tui/hotkeys.ts` — a/r/n/c/m hotkeys
+- [x] `src/tui/styles.ts` — minimal theme (3 colors max)
+- [x] Manual-Test mit Mock-Data
+- [x] Commit + push + tag `v0.4.0`
 
 ### Phase 5 — Konflikt-Preview
 - [ ] `src/merge/conflict-detector.ts` — find files touched by 2+ agents
@@ -299,7 +299,7 @@ Dort liegen die ursprünglichen Pain-Point-Belege + Differentiator-Argumente.
 
 ## Status-Tracking
 
-**Aktuelle Phase:** 4 (Ink TUI)
-**Nächste Action:** Ink app.tsx + tab-bar + diff-view + hotkeys.
+**Aktuelle Phase:** 5 (Konflikt-Preview)
+**Nächste Action:** conflict-detector + side-by-side conflict view.
 **Blocker:** keine
-**Letzter Release-Tag:** v0.3.0 (prerelease, 2026-05-18)
+**Letzter Release-Tag:** v0.4.0 (prerelease, 2026-05-18)

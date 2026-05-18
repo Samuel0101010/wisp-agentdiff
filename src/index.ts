@@ -21,9 +21,10 @@ program
 program
   .command("review")
   .description("Open the TUI to review per-agent diffs of the current session")
-  .action(() => {
-    console.error("review: not implemented yet (Phase 4)");
-    process.exitCode = 1;
+  .option("--repo <dir>", "repository root", process.cwd())
+  .action(async (opts: { repo: string }) => {
+    const { runReviewTui } = await import("./tui/run.js");
+    await runReviewTui({ repoRoot: opts.repo });
   });
 
 const hook = program
