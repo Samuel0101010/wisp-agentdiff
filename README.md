@@ -137,6 +137,18 @@ but no review surface — cleanup is all-or-nothing.
 + tool-call telemetry, cross-agent conflict detection, single-key
 approve / revert / merge.
 
+## Related — `wisp-orchestrator`
+
+If you need the *before* of the agent-crew lifecycle — visual team
+builder, plan-as-DAG, live execution graph in the browser, hours-long
+autonomous runs — see [**wisp-orchestrator**](https://github.com/Samuel0101010/wisp-orchestrator). Same author, complementary
+workflow:
+
+| Stage | Tool |
+|------|------|
+| Plan + spawn + watch multi-agent runs | **wisp-orchestrator** |
+| Review + approve + merge the resulting per-agent worktrees | **wisp-agentdiff** *(this repo)* |
+
 ## Status & roadmap
 
 v1.0 ships the core loop. Backlog and open questions live in
