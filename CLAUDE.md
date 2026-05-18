@@ -170,11 +170,11 @@ gh release create v1.0.0 --title "v1.0.0 — Public Launch" --notes-file docs/la
 - [x] Commit + push + tag `v0.2.0`
 
 ### Phase 3 — Diff Collection
-- [ ] `src/collect/diff-parser.ts` — `git diff main..wisp-agentdiff/agent-<id>` → JSON (files, +lines, -lines, hunks)
-- [ ] `src/collect/jsonl-reader.ts` — Subagent-Transkript parsen für Tool-Calls + Token-Counts
-- [ ] `src/collect/token-tracker.ts` — Aggregation pro Agent
-- [ ] Tests mit fixtures/sample-subagent-jsonl/
-- [ ] Commit + push + tag `v0.3.0`
+- [x] `src/collect/diff-parser.ts` — `git diff main..wisp-agentdiff/agent-<id>` → JSON (files, +lines, -lines, hunks)
+- [x] `src/collect/jsonl-reader.ts` — Subagent-Transkript parsen für Tool-Calls + Token-Counts
+- [x] `src/collect/token-tracker.ts` — Aggregation pro Agent
+- [x] Tests mit fixtures/sample-subagent-jsonl/
+- [x] Commit + push + tag `v0.3.0`
 
 ### Phase 4 — TUI (Ink)
 - [ ] `src/tui/app.tsx` — Ink Root mit Pane-State
@@ -299,7 +299,7 @@ Dort liegen die ursprünglichen Pain-Point-Belege + Differentiator-Argumente.
 
 ## Status-Tracking
 
-**Aktuelle Phase:** 3 (Diff Collection)
-**Nächste Action:** diff-parser, jsonl-reader, token-tracker.
+**Aktuelle Phase:** 4 (Ink TUI)
+**Nächste Action:** Ink app.tsx + tab-bar + diff-view + hotkeys.
 **Blocker:** keine
-**Letzter Release-Tag:** v0.2.0 (prerelease, 2026-05-18)
+**Letzter Release-Tag:** v0.3.0 (prerelease, 2026-05-18)

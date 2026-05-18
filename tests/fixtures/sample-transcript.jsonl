@@ -1,0 +1,5 @@
+{"type":"system","model":"claude-opus-4-7","subtype":"start"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Looking at this..."},{"type":"tool_use","name":"Read","id":"toolu_01"}],"usage":{"input_tokens":1200,"output_tokens":80,"cache_read_input_tokens":4500}}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Read","id":"toolu_02"},{"type":"tool_use","name":"Grep","id":"toolu_03"}],"usage":{"input_tokens":1500,"output_tokens":120}}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","id":"toolu_04"}],"usage":{"input_tokens":2000,"output_tokens":300,"cache_creation_input_tokens":150}}}
+{"type":"result","result":"Refactor complete.","duration_ms":12500,"usage":{"input_tokens":0,"output_tokens":40,"total_tokens":40}}
