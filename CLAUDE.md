@@ -186,10 +186,10 @@ gh release create v1.0.0 --title "v1.0.0 — Public Launch" --notes-file docs/la
 - [x] Commit + push + tag `v0.4.0`
 
 ### Phase 5 — Konflikt-Preview
-- [ ] `src/merge/conflict-detector.ts` — find files touched by 2+ agents
-- [ ] `src/tui/conflict-view.tsx` — side-by-side highlight
-- [ ] Tests: synthetische Konflikte
-- [ ] Commit + push + tag `v0.5.0`
+- [x] `src/merge/conflict-detector.ts` — find files touched by 2+ agents
+- [x] `src/tui/conflict-view.tsx` — side-by-side highlight
+- [x] Tests: synthetische Konflikte
+- [x] Commit + push + tag `v0.5.0`
 
 ### Phase 6 — Merge-Logik
 - [ ] `src/merge/approver.ts` — apply approved branches sequentially to main worktree
@@ -299,7 +299,7 @@ Dort liegen die ursprünglichen Pain-Point-Belege + Differentiator-Argumente.
 
 ## Status-Tracking
 
-**Aktuelle Phase:** 5 (Konflikt-Preview)
-**Nächste Action:** conflict-detector + side-by-side conflict view.
+**Aktuelle Phase:** 6 (Merge-Logik)
+**Nächste Action:** approver applies approved branches, refuses on conflict.
 **Blocker:** keine
-**Letzter Release-Tag:** v0.4.0 (prerelease, 2026-05-18)
+**Letzter Release-Tag:** v0.5.0 (prerelease, 2026-05-18)

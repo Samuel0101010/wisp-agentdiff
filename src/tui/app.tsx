@@ -1,6 +1,8 @@
 import { Box, Text, useApp, useInput } from "ink";
 import type React from "react";
-import { useReducer } from "react";
+import { useMemo, useReducer } from "react";
+import { detectConflicts } from "../merge/conflict-detector.js";
+import { ConflictView } from "./conflict-view.js";
 import { DiffView } from "./diff-view.js";
 import { type TuiState, initialState, mapKey, reduce } from "./hotkeys.js";
 import { type AgentView, summarizeFiles, summarizeTokens } from "./session.js";
@@ -34,16 +36,29 @@ export const App: React.FC<AppProps> = ({ agents, onStateChange }) => {
 
   const decisions = state.decisions;
   const active = agents[state.activeIndex];
+  const conflicts = useMemo(() => detectConflicts(agents.map((a) => a.report)), [agents]);
+  const conflictsForActive = conflicts.filter((c) =>
+    c.participants.some((p) => p.agentId === active?.report.agent.id),
+  );
 
   return (
     <Box flexDirection="column">
       <TabBar agents={agents} activeIndex={state.activeIndex} decisions={decisions} />
-      {active ? (
+      {state.mode === "conflict" ? (
+        <ConflictView conflicts={conflictsForActive} />
+      ) : active ? (
         <Box flexDirection="column">
           <Box paddingX={1}>
             <Text color={theme.muted}>
               {summarizeFiles(active)} · {summarizeTokens(active)} · branch{" "}
               {active.report.agent.branch}
+              {conflictsForActive.length > 0 ? (
+                <Text color={theme.warning}>
+                  {" "}
+                  · ⚠ {conflictsForActive.length} conflict
+                  {conflictsForActive.length > 1 ? "s" : ""}
+                </Text>
+              ) : null}
             </Text>
           </Box>
           <DiffView report={active.report} scroll={state.scroll} />
