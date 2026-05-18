@@ -7,8 +7,11 @@ Frame 3 — conflict view (api vs db both touched src/db/pool.ts)
 
 Catppuccin Mocha palette to match the chosen Ink theme.
 
-No external services, no vhs.  Uses Consolas (ships with Windows) for the
-monospace face.
+No external services, no vhs.  Uses Cascadia Mono (Windows 11) — it has
+✓ and the box-drawing glyphs.  ✗ and ⚠ fall back to ASCII X / !.
+
+Layout invariant: every frame line is exactly INNER_W + 2 cells wide so the
+left and right window borders align in a perfect column.
 """
 
 from __future__ import annotations
@@ -30,8 +33,11 @@ GREEN = (166, 227, 161)
 RED = (243, 139, 168)
 YELLOW = (249, 226, 175)
 MUTED = (108, 112, 134)
-BORDER = (69, 71, 90)
 WIN_BG = (17, 17, 27)
+
+# Fixed inner width — number of cells between the two │ borders.
+# Increase if a content line ever overflows; render will raise rather than truncate.
+INNER_W = 66
 
 
 @dataclass
@@ -42,8 +48,7 @@ class Span:
 
 
 def load_font(size: int = 18, bold: bool = False) -> ImageFont.FreeTypeFont:
-    # Cascadia Mono covers ✓ ✗ ⚠ ▍ and the box-drawing glyphs we use.
-    # Consolas is the second choice — wider availability but missing ✓ ✗ ▍ ⚠.
+    # Cascadia Mono covers ✓ and the box-drawing glyphs.
     candidates = [
         r"C:\Windows\Fonts\CascadiaMono.ttf",
         r"C:\Windows\Fonts\CascadiaCode.ttf",
@@ -66,7 +71,6 @@ FONT_BOLD = load_font(18, bold=True)
 
 
 def measure_cell() -> tuple[int, int]:
-    """Width and height of a single character cell in the chosen monospace font."""
     bbox = FONT.getbbox("M")
     return bbox[2] - bbox[0], bbox[3] - bbox[1] + 6
 
@@ -75,21 +79,17 @@ CELL_W, CELL_H = measure_cell()
 
 
 def render_frame(lines: list[list[Span]], title: str) -> Image.Image:
-    # Determine canvas size from the widest visible line and the number of lines.
     cols = max(sum(len(s.text) for s in line) for line in lines)
     rows = len(lines)
-
     pad_x, pad_y = 24, 56
-    chrome_h = 36  # macOS-style title bar
-    inner_w = cols * CELL_W
-    inner_h = rows * CELL_H
-    width = inner_w + pad_x * 2
-    height = inner_h + pad_y * 2 + chrome_h
+    chrome_h = 36
+    width = cols * CELL_W + pad_x * 2
+    height = rows * CELL_H + pad_y * 2 + chrome_h
 
     img = Image.new("RGB", (width, height), WIN_BG)
     draw = ImageDraw.Draw(img)
 
-    # Window chrome
+    # macOS-style title bar
     draw.rectangle((0, 0, width, chrome_h), fill=(24, 24, 37))
     for i, color in enumerate([(243, 139, 168), (249, 226, 175), (166, 227, 161)]):
         cx = 22 + i * 22
@@ -103,11 +103,9 @@ def render_frame(lines: list[list[Span]], title: str) -> Image.Image:
         font=FONT,
     )
 
-    # Terminal body
     body_top = chrome_h
     draw.rectangle((0, body_top, width, height), fill=BG)
 
-    # Render each line
     y = body_top + pad_y - 16
     for line in lines:
         x = pad_x
@@ -120,25 +118,73 @@ def render_frame(lines: list[list[Span]], title: str) -> Image.Image:
     return img
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Frame data — each line is a list of Span(text, color, bold)
-# Spans are concatenated so we keep proportional widths via fixed cell.
-# ─────────────────────────────────────────────────────────────────────────
-
-
-def line(*spans: Span) -> list[Span]:
-    return list(spans)
-
-
 def s(text: str, color: tuple[int, int, int] = FG, bold: bool = False) -> Span:
     return Span(text, color, bold)
 
 
+# ─────────────────────────────────────────────────────────────────────────
+# Width-safe line builders.  Every line produced by these helpers is exactly
+# INNER_W + 2 cells wide so the left/right window borders stack perfectly.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def _measure(spans: list[Span]) -> int:
+    return sum(len(sp.text) for sp in spans)
+
+
+def fline(*content: Span) -> list[Span]:
+    """Frame line: │ <content> <auto-pad> │"""
+    inner = list(content)
+    used = _measure(inner)
+    if used > INNER_W:
+        raise ValueError(f"fline content {used} > INNER_W={INNER_W}: {''.join(c.text for c in inner)!r}")
+    pad = INNER_W - used
+    if pad:
+        inner.append(s(" " * pad))
+    return [s("│", ACCENT), *inner, s("│", ACCENT)]
+
+
+def top(label: str) -> list[Span]:
+    """┌─ <label> ─────…─┐  with the label embedded near the start."""
+    chunk = f"─ {label} "
+    if len(chunk) > INNER_W:
+        raise ValueError(f"top label too long: {chunk!r}")
+    fill = "─" * (INNER_W - len(chunk))
+    return [s("┌", ACCENT), s(chunk + fill, ACCENT), s("┐", ACCENT)]
+
+
+def divider() -> list[Span]:
+    return [s("├", ACCENT), s("─" * INNER_W, ACCENT), s("┤", ACCENT)]
+
+
+def bottom() -> list[Span]:
+    return [s("└", ACCENT), s("─" * INNER_W, ACCENT), s("┘", ACCENT)]
+
+
+def hotkey_bar() -> list[Span]:
+    return fline(
+        s(" "),
+        s("[a]", ACCENT, bold=True), s("pprove ", MUTED),
+        s("[r]", ACCENT, bold=True), s("evert ", MUTED),
+        s("[n]", ACCENT, bold=True), s("ext ", MUTED),
+        s("[p]", ACCENT, bold=True), s("rev ", MUTED),
+        s("[c]", ACCENT, bold=True), s("onflict ", MUTED),
+        s("[m]", ACCENT, bold=True), s("erge ", MUTED),
+        s("[j/k] ", MUTED),
+        s("[q]", ACCENT, bold=True),
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Frame data
+# ─────────────────────────────────────────────────────────────────────────
+
+
 def frame_opening() -> list[list[Span]]:
     return [
-        line(s("┌─ wisp-agentdiff ─ 5 agents ─────────────────────────────────────┐", ACCENT)),
-        line(
-            s("│ ", ACCENT),
+        top("wisp-agentdiff ─ 5 agents"),
+        fline(
+            s(" "),
             s("▍1. auth ", ACCENT, bold=True),
             s("·  ", MUTED),
             s("2. api ", MUTED),
@@ -149,92 +195,33 @@ def frame_opening() -> list[list[Span]]:
             s("·  ", MUTED),
             s("5. docs ", MUTED),
             s("·", MUTED),
-            s("        │", ACCENT),
         ),
-        line(s("├─────────────────────────────────────────────────────────────────┤", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("2 files  +6 -1 · 1,240 tok  12 tools · branch agent-auth        ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("line 1–14 of 14 · 2 files · +6 -1                               ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("── modified  src/auth/session.ts                                 ", ACCENT),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("@@ -1,5 +1,9 @@                                                  ", YELLOW),
-            s("│", ACCENT),
-        ),
-        line(s("│   export interface Session {                                     │", ACCENT)),
-        line(s("│     id: string;                                                 │", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("+   userId: string;                                              ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+   createdAt: Date;                                             ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+   expiresAt: Date;                                             ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(s("│   }                                                             │", ACCENT)),
-        line(s("│                                                                 │", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("+ export function rotateToken(s: Session): Session {             ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+   return { ...s };                                             ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+ }                                                              ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(s("├─────────────────────────────────────────────────────────────────┤", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("[a]", ACCENT, bold=True),
-            s("pprove ", MUTED),
-            s("[r]", ACCENT, bold=True),
-            s("evert ", MUTED),
-            s("[n]", ACCENT, bold=True),
-            s("ext ", MUTED),
-            s("[p]", ACCENT, bold=True),
-            s("rev ", MUTED),
-            s("[c]", ACCENT, bold=True),
-            s("onflict ", MUTED),
-            s("[m]", ACCENT, bold=True),
-            s("erge ", MUTED),
-            s("[j/k] ", MUTED),
-            s("[q]", ACCENT, bold=True),
-            s("   ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(s("└─────────────────────────────────────────────────────────────────┘", ACCENT)),
+        divider(),
+        fline(s(" 2 files  +6 -1 · 1,240 tok  12 tools · branch agent-auth", MUTED)),
+        fline(s(" line 1–14 of 14 · 2 files · +6 -1", MUTED)),
+        fline(s(" ── modified  src/auth/session.ts", ACCENT)),
+        fline(s(" @@ -1,5 +1,9 @@", YELLOW)),
+        fline(s("   export interface Session {")),
+        fline(s("     id: string;")),
+        fline(s(" +   userId: string;", GREEN)),
+        fline(s(" +   createdAt: Date;", GREEN)),
+        fline(s(" +   expiresAt: Date;", GREEN)),
+        fline(s("   }")),
+        fline(),
+        fline(s(" + export function rotateToken(s: Session): Session {", GREEN)),
+        fline(s(" +   return { ...s };", GREEN)),
+        fline(s(" + }", GREEN)),
+        divider(),
+        hotkey_bar(),
+        bottom(),
     ]
 
 
 def frame_after_decisions() -> list[list[Span]]:
     return [
-        line(s("┌─ wisp-agentdiff ─ 5 agents ─────────────────────────────────────┐", ACCENT)),
-        line(
-            s("│   ", ACCENT),
+        top("wisp-agentdiff ─ 5 agents"),
+        fline(
+            s("   "),
             s("1. auth ", MUTED),
             s("✓", GREEN, bold=True),
             s("  ", MUTED),
@@ -249,109 +236,36 @@ def frame_after_decisions() -> list[list[Span]]:
             s("  ", MUTED),
             s("5. docs ", MUTED),
             s("✓", GREEN, bold=True),
-            s("   │", ACCENT),
         ),
-        line(s("├─────────────────────────────────────────────────────────────────┤", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("4 files  +18 -8 · 3,420 tok  29 tools · branch agent-db ", MUTED),
-            s("!1 ", YELLOW, bold=True),
-            s("   │", ACCENT),
+        divider(),
+        fline(
+            s(" 4 files  +18 -8 · 3,420 tok  29 tools · branch agent-db ", MUTED),
+            s("!1", YELLOW, bold=True),
         ),
-        line(
-            s("│ ", ACCENT),
-            s("line 1–14 of 14 · 4 files · +18 -8                              ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("── modified  src/db/pool.ts                                      ", ACCENT),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("@@ -1,20 +1,40 @@                                                ", YELLOW),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("- export class Pool {                                            ", RED),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("-   constructor(opts: Opts) {                                    ", RED),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("-     this.url = opts.url;                                       ", RED),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+ // Complete rewrite — switched to a custom retry loop          ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+ // and removed timeout config. (this is the rogue agent.)      ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+ export class Pool {                                            ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+   constructor(opts: Opts) {                                    ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+     this.url = String(opts.url);                               ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+     this.client = unsafeMakeClient(opts);                      ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("+   }                                                            ", GREEN),
-            s("│", ACCENT),
-        ),
-        line(s("├─────────────────────────────────────────────────────────────────┤", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("[a]", ACCENT, bold=True),
-            s("pprove ", MUTED),
-            s("[r]", ACCENT, bold=True),
-            s("evert ", MUTED),
-            s("[n]", ACCENT, bold=True),
-            s("ext ", MUTED),
-            s("[p]", ACCENT, bold=True),
-            s("rev ", MUTED),
-            s("[c]", ACCENT, bold=True),
-            s("onflict ", MUTED),
-            s("[m]", ACCENT, bold=True),
-            s("erge ", MUTED),
-            s("[j/k] ", MUTED),
-            s("[q]", ACCENT, bold=True),
-            s("   ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(s("└─────────────────────────────────────────────────────────────────┘", ACCENT)),
+        fline(s(" line 1–14 of 14 · 4 files · +18 -8", MUTED)),
+        fline(s(" ── modified  src/db/pool.ts", ACCENT)),
+        fline(s(" @@ -1,20 +1,40 @@", YELLOW)),
+        fline(s(" - export class Pool {", RED)),
+        fline(s(" -   constructor(opts: Opts) {", RED)),
+        fline(s(" -     this.url = opts.url;", RED)),
+        fline(s(" + // Complete rewrite — switched to a custom retry loop", GREEN)),
+        fline(s(" + // and removed timeout config. (rogue agent.)", GREEN)),
+        fline(s(" + export class Pool {", GREEN)),
+        fline(s(" +   constructor(opts: Opts) {", GREEN)),
+        fline(s(" +     this.url = String(opts.url);", GREEN)),
+        fline(s(" +     this.client = unsafeMakeClient(opts);", GREEN)),
+        fline(s(" +   }", GREEN)),
+        divider(),
+        hotkey_bar(),
+        bottom(),
     ]
 
 
 def frame_conflict() -> list[list[Span]]:
     return [
-        line(s("┌─ wisp-agentdiff ─ 5 agents ─────────────────────────────────────┐", ACCENT)),
-        line(
-            s("│   ", ACCENT),
+        top("wisp-agentdiff ─ 5 agents"),
+        fline(
+            s("   "),
             s("1. auth ", MUTED),
             s("✓", GREEN, bold=True),
             s("  ", MUTED),
@@ -366,80 +280,23 @@ def frame_conflict() -> list[list[Span]]:
             s("  ", MUTED),
             s("5. docs ", MUTED),
             s("✓", GREEN, bold=True),
-            s("   │", ACCENT),
         ),
-        line(s("├─────────────────────────────────────────────────────────────────┤", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("1 conflicting file · viewing 1/1                                ", YELLOW),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("── src/db/pool.ts                                                ", ACCENT),
-            s("│", ACCENT),
-        ),
-        line(s("│                                                                 │", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("api ", ACCENT, bold=True),
-            s("(modified · +2 -0)                                          ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("@@ -22,7 +22,9 @@ export class Pool {                            ", YELLOW),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("branch wisp-agentdiff/agent-api                                  ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(s("│                                                                 │", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("db  ", ACCENT, bold=True),
-            s("(modified · +9 -3)                                          ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("@@ -1,20 +1,40 @@                                                ", YELLOW),
-            s("│", ACCENT),
-        ),
-        line(
-            s("│ ", ACCENT),
-            s("branch wisp-agentdiff/agent-db                                   ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(s("│                                                                 │", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("press [c] to return · revert one of the conflicting agents       ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(s("├─────────────────────────────────────────────────────────────────┤", ACCENT)),
-        line(
-            s("│ ", ACCENT),
-            s("[a]", ACCENT, bold=True),
-            s("pprove ", MUTED),
-            s("[r]", ACCENT, bold=True),
-            s("evert ", MUTED),
-            s("[n]", ACCENT, bold=True),
-            s("ext ", MUTED),
-            s("[p]", ACCENT, bold=True),
-            s("rev ", MUTED),
-            s("[c]", ACCENT, bold=True),
-            s("onflict ", MUTED),
-            s("[m]", ACCENT, bold=True),
-            s("erge ", MUTED),
-            s("[j/k] ", MUTED),
-            s("[q]", ACCENT, bold=True),
-            s("   ", MUTED),
-            s("│", ACCENT),
-        ),
-        line(s("└─────────────────────────────────────────────────────────────────┘", ACCENT)),
+        divider(),
+        fline(s(" 1 conflicting file · viewing 1/1", YELLOW)),
+        fline(s(" ── src/db/pool.ts", ACCENT)),
+        fline(),
+        fline(s(" api ", ACCENT, bold=True), s("(modified · +2 -0)", MUTED)),
+        fline(s(" @@ -22,7 +22,9 @@ export class Pool {", YELLOW)),
+        fline(s(" branch wisp-agentdiff/agent-api", MUTED)),
+        fline(),
+        fline(s(" db  ", ACCENT, bold=True), s("(modified · +9 -3)", MUTED)),
+        fline(s(" @@ -1,20 +1,40 @@", YELLOW)),
+        fline(s(" branch wisp-agentdiff/agent-db", MUTED)),
+        fline(),
+        fline(s(" press [c] to return · revert one of the conflicting agents", MUTED)),
+        divider(),
+        hotkey_bar(),
+        bottom(),
     ]
 
 
@@ -451,10 +308,15 @@ def main() -> int:
     ]
     OUT.mkdir(parents=True, exist_ok=True)
     for filename, builder, title in frames:
-        img = render_frame(builder(), title)
+        lines = builder()
+        # Sanity-check: every line must have the same total cell count.
+        widths = {sum(len(s.text) for s in line) for line in lines}
+        if len(widths) != 1:
+            raise AssertionError(f"{filename}: inconsistent widths {sorted(widths)}")
+        img = render_frame(lines, title)
         out_path = OUT / filename
         img.save(out_path, "PNG", optimize=True)
-        print(f"wrote {out_path.name}: {img.size}, {out_path.stat().st_size // 1024} KiB")
+        print(f"wrote {out_path.name}: {img.size}, {out_path.stat().st_size // 1024} KiB, all lines {widths.pop()} cells wide")
     return 0
 
 
