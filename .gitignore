@@ -1,0 +1,25 @@
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.local
+.DS_Store
+Thumbs.db
+coverage/
+.vscode/
+.idea/
+*.tsbuildinfo
+.cache/
+tmp/
+.npm/
+.claude/wisp-agentdiff.log
+.claude/wisp-agentdiff-state.json
+.claude/settings.local.json
+
+# Ruflo / agentdb scratch
+.swarm/
+agentdb.rvf
+agentdb.rvf.lock
+.ruflo/
+
