@@ -1,0 +1,6 @@
+{
+  "hooks": {
+    "WorktreeCreate": "wisp-agentdiff hook worktree-create",
+    "WorktreeRemove": "wisp-agentdiff hook worktree-remove"
+  }
+}

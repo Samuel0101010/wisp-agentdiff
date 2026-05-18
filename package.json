@@ -9,7 +9,7 @@
   "main": "./dist/index.js",
   "files": [
     "dist",
-    ".claude",
+    "templates",
     "README.md",
     "LICENSE"
   ],

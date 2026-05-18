@@ -12,10 +12,13 @@ program
 
 program
   .command("install")
-  .description("Install wisp-agentdiff skill, slash command, and hooks into ~/.claude")
-  .action(() => {
-    console.error("install: not implemented yet (Phase 7)");
-    process.exitCode = 1;
+  .description("Install wisp-agentdiff skill, slash command, and hook snippet into ~/.claude")
+  .option("--target <dir>", "override target directory (default ~/.claude or $CLAUDE_CONFIG_DIR)")
+  .action(async (opts: { target?: string }) => {
+    const { installArtifacts } = await import("./install.js");
+    installArtifacts({
+      ...(opts.target ? { targetDir: opts.target } : {}),
+    });
   });
 
 program

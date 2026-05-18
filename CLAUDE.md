@@ -198,11 +198,11 @@ gh release create v1.0.0 --title "v1.0.0 — Public Launch" --notes-file docs/la
 - [x] Commit + push + tag `v0.6.0`
 
 ### Phase 7 — Skill + Slash-Command + Install
-- [ ] `.claude/skills/wisp-agentdiff/SKILL.md` — description triggert auf "review agents", "show what each agent did"
-- [ ] `.claude/commands/review-agents.md`
-- [ ] `src/install.ts` — `npx wisp-agentdiff install` → kopiert skill+command in user's `.claude/`
-- [ ] Smoke-Test: end-to-end mit echter Claude-Code-Session
-- [ ] Commit + push + tag `v0.7.0`
+- [x] `.claude/skills/wisp-agentdiff/SKILL.md` — description triggert auf "review agents", "show what each agent did"
+- [x] `.claude/commands/review-agents.md`
+- [x] `src/install.ts` — `npx wisp-agentdiff install` → kopiert skill+command in user's `.claude/`
+- [x] Smoke-Test: end-to-end mit echter Claude-Code-Session
+- [x] Commit + push + tag `v0.7.0`
 
 ### Phase 8 — Demo + Polish
 - [ ] `scripts/demo.tape` — vhs-Skript: 5 Subagents spawnen → TUI öffnet → Approve/Revert → Merge
@@ -299,7 +299,7 @@ Dort liegen die ursprünglichen Pain-Point-Belege + Differentiator-Argumente.
 
 ## Status-Tracking
 
-**Aktuelle Phase:** 7 (Skill + slash command + install)
-**Nächste Action:** SKILL.md, slash-command, npx wisp-agentdiff install.
+**Aktuelle Phase:** 8 (Demo + polish)
+**Nächste Action:** demo.tape, README hero, launch checklist.
 **Blocker:** keine
-**Letzter Release-Tag:** v0.6.0 (prerelease, 2026-05-18)
+**Letzter Release-Tag:** v0.7.0 (prerelease, 2026-05-18)
