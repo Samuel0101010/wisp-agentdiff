@@ -13,9 +13,9 @@ coverage/
 .cache/
 tmp/
 .npm/
-.claude/wisp-agentdiff.log
-.claude/wisp-agentdiff-state.json
-.claude/settings.local.json
+# Local Claude Code state — captured worktrees, hooks state, settings,
+# anything Claude Code or wisp-agentdiff itself writes into the repo.
+.claude/
 
 # Local AI-agent scratch (not part of the published package)
 .swarm/
