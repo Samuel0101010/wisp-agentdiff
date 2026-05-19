@@ -790,15 +790,33 @@ var init_jsonl_reader = __esm({
 
 // src/collect/token-tracker.ts
 import { existsSync as existsSync8, readFileSync as readFileSync5 } from "fs";
+import { simpleGit as simpleGit3 } from "simple-git";
+async function readLiveDiff(agent) {
+  if (!existsSync8(agent.path)) return "";
+  try {
+    return await simpleGit3(agent.path).raw(["diff", agent.baseRef]);
+  } catch {
+    return "";
+  }
+}
 async function buildAgentReport(agent) {
   let rawDiff = "";
+  let diffSource = "missing";
   if (agent.diffPath && existsSync8(agent.diffPath)) {
     const parsed = JSON.parse(readFileSync5(agent.diffPath, "utf8"));
     rawDiff = parsed.unified ?? "";
+    diffSource = "stored";
+  }
+  if (rawDiff.length === 0) {
+    const live = await readLiveDiff(agent);
+    if (live.length > 0) {
+      rawDiff = live;
+      diffSource = "live";
+    }
   }
   const diff = parseUnifiedDiff(rawDiff);
   const transcript = agent.transcriptPath ? await readTranscript(agent.transcriptPath) : emptySummary();
-  return { agent, diff, transcript, rawDiff };
+  return { agent, diff, transcript, rawDiff, diffSource };
 }
 var init_token_tracker = __esm({
   "src/collect/token-tracker.ts"() {
@@ -1220,7 +1238,7 @@ import { existsSync as existsSync9, readFileSync as readFileSync6, statSync as s
 import { homedir as homedir2 } from "os";
 import { dirname as dirname9, join as join6, resolve as resolve5 } from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
-import { simpleGit as simpleGit3 } from "simple-git";
+import { simpleGit as simpleGit4 } from "simple-git";
 function tag(status) {
   switch (status) {
     case "ok":
@@ -1236,7 +1254,7 @@ async function runDoctor(repoRoot) {
   const root = resolve5(repoRoot);
   let gitRoot = null;
   try {
-    const out = await simpleGit3(root).revparse(["--show-toplevel"]);
+    const out = await simpleGit4(root).revparse(["--show-toplevel"]);
     gitRoot = out.trim();
     checks.push({
       label: "workspace is a git repo",

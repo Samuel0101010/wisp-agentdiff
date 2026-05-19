@@ -134,11 +134,11 @@ describe("aggregateTotals", () => {
 });
 
 describe("buildAgentReport", () => {
-  it("returns empty diff when diffPath is missing", async () => {
+  it("returns empty diff and source=missing when path doesn't exist", async () => {
     const report = await buildAgentReport({
       id: "x",
       name: "x",
-      path: "/",
+      path: "C:/nonexistent-wisp-test-path-xyzzy",
       branch: "b",
       baseRef: "r",
       createdAt: "",
@@ -146,5 +146,39 @@ describe("buildAgentReport", () => {
     });
     expect(report.diff.files).toHaveLength(0);
     expect(report.transcript.messageCount).toBe(0);
+    expect(report.diffSource).toBe("missing");
+  });
+
+  it("falls back to live worktree diff when no stored diff exists", async () => {
+    // Integration-flavoured test: temp git repo + real worktree, no diff cache.
+    const { makeTempRepo } = await import("./helpers/temp-repo.js");
+    const { WorktreeManager } = await import("../src/wrap/worktree-manager.js");
+    const { writeFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    const repo = await makeTempRepo();
+    try {
+      const mgr = new WorktreeManager(repo.root);
+      const created = await mgr.create({ name: "live-diff" });
+      writeFileSync(join(created.path, "live.ts"), "export const live = true;\n", "utf8");
+      // Note: no commit — this verifies the working-tree-included git diff path.
+      await mgr.commitPending(created.path, "test commit for live-diff");
+
+      const report = await buildAgentReport({
+        id: "live-1",
+        name: created.name,
+        path: created.path,
+        branch: created.branch,
+        baseRef: created.baseRef,
+        createdAt: "",
+        status: "running",
+        // no diffPath — forces the live fallback
+      });
+      expect(report.diffSource).toBe("live");
+      expect(report.rawDiff).toContain("live.ts");
+      expect(report.rawDiff).toContain("+export const live = true;");
+    } finally {
+      repo.cleanup();
+    }
   });
 });

@@ -16,29 +16,51 @@ everything below.
 - [x] CI matrix: Linux / macOS / Windows × Node 20 / 22
 - [x] Claude Code `/plugin install` path (v1.1.0+) with bundled `dist/`, `wisp-self-test` canary, and `doctor` subcommand
 - [x] Hook diagnostic log at `.claude/wisp-agentdiff/debug.log` (v1.1.3)
-- [x] `PreToolUse: Task` correlation so the TUI shows the real subagent_type
-  label (e.g. `wisp-self-test`) instead of Claude Code's internal hex
-  worktree id (v1.2.0)
+- [x] `PreToolUse: Task` correlation plumbed (v1.2.0) — the code path
+  works in tests, but **end-to-end verification on Claude Code v2 shows
+  the `PreToolUse: Task` hook does not actually fire** for plugin-loaded
+  hooks, so the displayLabel field is never populated in practice. The
+  pending-tasks store + correlation reducer stay in place as scaffolding
+  for v1.3, when we will derive subagent_type from the
+  `transcript_path` field Claude Code does pass into the WorktreeCreate
+  payload.
+- [x] Live worktree diff at review time (v1.2.1) — `buildAgentReport`
+  now falls back to `git diff <baseRef>` against the still-existing
+  worktree when the cached diff JSON is missing or empty. This is the
+  typical path because Claude Code persists subagent worktrees until
+  session-end, so `WorktreeRemove` rarely fires during normal review.
 
 ## Known limitations
 
-- **Diff is empty when a subagent doesn't commit its own edits.** The
-  `WorktreeRemove` handler runs `commitPending` (i.e. `git add -A && git
-  commit`) on the worktree before computing the diff, but Claude Code may
-  remove the worktree directory before the hook fires, in which case there
-  is nothing to commit against. The shipped `wisp-self-test` canary
-  explicitly commits inside the worktree as a belt-and-braces — real
-  subagents that only mutate the working tree without committing may
-  produce empty diffs. v1.2 will inspect file system state pre-removal
-  and capture a working-tree snapshot as a fallback.
+- **Agent label in the TUI is Claude Code's hex worktree id, not the
+  subagent_type.** Confirmed via debug.log: Claude Code v2 does not
+  currently invoke plugin-defined `PreToolUse: Task` hooks, so the
+  correlation buffer stays empty and `displayLabel` is never set.
+  v1.3 will switch to parsing the `transcript_path` Claude Code does
+  pass into the WorktreeCreate payload and extracting subagent_type
+  from the most recent `Task` tool invocation in that transcript.
+
+- **Agent status stays `running` indefinitely; cached diffs never write.**
+  Claude Code does not fire `WorktreeRemove` on subagent completion
+  (worktrees persist until session-end or `claude --remove-worktree`).
+  v1.2.1 sidesteps this by computing the diff live from the worktree
+  at review time. The `commitPending` + cached-diff path in
+  `WorktreeRemove` remains as a fallback for the orphan-sweep case.
+
+- **Worktree branches accumulate across sessions.** Since
+  `WorktreeRemove` rarely fires, `wisp-agentdiff/agent-*` branches and
+  the `.claude/worktrees/wisp-agentdiff/` subdirectories grow over time.
+  v1.3 will add `wisp-agentdiff prune` to garbage-collect.
 
 ## Probably v1.3+
 
-- [ ] Working-tree snapshot fallback when `WorktreeRemove` finds an
-  uncommitted-or-already-cleaned worktree
+- [ ] `transcript_path`-based subagent_type extraction → real
+  `displayLabel` (replaces the unfired PreToolUse:Task scaffolding)
+- [ ] `wisp-agentdiff prune` to garbage-collect orphaned agent branches
+  and `.claude/worktrees/wisp-agentdiff/<name>/` dirs left by
+  unfired WorktreeRemove
 - [ ] Side-by-side conflict diff (currently stacked vertically)
 - [ ] Per-agent transcript pane (currently surfaced as a header summary)
-- [ ] `wisp-agentdiff prune` to garbage-collect orphaned agent branches
 - [ ] Lazy-render large diffs (deferred parsing for hunks below the fold)
 - [ ] Color-blind theme switch
 

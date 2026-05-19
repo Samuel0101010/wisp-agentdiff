@@ -1,6 +1,6 @@
 {
   "name": "wisp-agentdiff",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Per-agent diffs for Claude Code parallel subagent workflows",
   "type": "module",
   "bin": {
