@@ -29,5 +29,6 @@ The plugin only captures subagents that were spawned with `isolation: worktree` 
 2. If `doctor` says everything is OK / WARN-only, dispatch the bundled canary to fire the hooks once:
    `Task(subagent_type: "wisp-self-test", description: "verify wisp-agentdiff hooks fire", prompt: "go")`
 3. Then re-run `/review-agents`. You should now see one agent `wisp-self-test` with a single-line diff.
+4. If you've been running many sessions and want to clean up the accumulated worktrees + branches, run `node "${CLAUDE_PLUGIN_ROOT}/dist/index.js" prune --dry-run` to see candidates, then drop `--dry-run` to execute.
 
 If the canary runs but state still doesn't update, the WorktreeCreate hook isn't firing — open an issue with the doctor output.

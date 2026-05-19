@@ -113,6 +113,140 @@ var init_state = __esm({
   }
 });
 
+// src/wrap/worktree-manager.ts
+import { existsSync as existsSync3, mkdirSync as mkdirSync3, realpathSync, rmSync } from "fs";
+import { dirname as dirname3, join as join3, resolve as resolve2 } from "path";
+import { simpleGit } from "simple-git";
+function normalizePath(p) {
+  const abs = resolve2(p);
+  try {
+    return realpathSync.native ? realpathSync.native(abs) : realpathSync(abs);
+  } catch {
+    return abs;
+  }
+}
+function sanitizeName(name) {
+  const slug = name.replace(SAFE_NAME, "-").replace(/^[-.]+|[-.]+$/g, "");
+  if (!slug) throw new Error(`worktree name resolves to empty slug: ${name}`);
+  if (RESERVED_NAMES.has(slug)) {
+    throw new Error(`worktree name '${name}' resolves to reserved slug '${slug}'`);
+  }
+  if (slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
+    throw new Error(`worktree name '${name}' contains path-separator or traversal chars`);
+  }
+  return slug;
+}
+function assertValidRef(ref) {
+  if (!REFNAME_RE.test(ref)) {
+    throw new Error(`invalid git ref '${ref}' \u2014 expected ^[\\w][\\w./-]{0,199}$`);
+  }
+}
+function defaultBasePath(repoRoot) {
+  return join3(repoRoot, ".claude", "worktrees", "wisp-agentdiff");
+}
+var SAFE_NAME, RESERVED_NAMES, REFNAME_RE, WorktreeManager;
+var init_worktree_manager = __esm({
+  "src/wrap/worktree-manager.ts"() {
+    "use strict";
+    SAFE_NAME = /[^a-zA-Z0-9._-]+/g;
+    RESERVED_NAMES = /* @__PURE__ */ new Set([".", "..", "HEAD"]);
+    REFNAME_RE = /^[\w][\w./-]{0,199}$/;
+    WorktreeManager = class {
+      git;
+      repoRoot;
+      constructor(repoRoot) {
+        this.repoRoot = resolve2(repoRoot);
+        this.git = simpleGit(this.repoRoot);
+      }
+      async resolveHead() {
+        const sha = (await this.git.revparse(["HEAD"])).trim();
+        if (!sha) throw new Error("could not resolve HEAD \u2014 is this a git repo?");
+        return sha;
+      }
+      async create(opts) {
+        const safeName = sanitizeName(opts.name);
+        const branchPrefix = opts.branchPrefix ?? "wisp-agentdiff/agent-";
+        const branch = `${branchPrefix}${safeName}`;
+        const basePath = opts.basePath ?? defaultBasePath(this.repoRoot);
+        const path = join3(basePath, safeName);
+        const baseRef = opts.baseRef ?? await this.resolveHead();
+        assertValidRef(baseRef);
+        if (existsSync3(path)) {
+          throw new Error(`worktree path already exists: ${path}`);
+        }
+        mkdirSync3(dirname3(path), { recursive: true });
+        await this.git.raw(["worktree", "add", "-b", branch, path, "--", baseRef]);
+        return { name: safeName, path: normalizePath(path), branch, baseRef };
+      }
+      async list() {
+        const out = await this.git.raw(["worktree", "list", "--porcelain"]);
+        const entries = [];
+        let current = {};
+        for (const line of out.split(/\r?\n/)) {
+          if (line.startsWith("worktree ")) {
+            if (current.path) entries.push(current);
+            current = { path: normalizePath(line.slice("worktree ".length)), head: "", bare: false };
+          } else if (line.startsWith("HEAD ")) {
+            current.head = line.slice("HEAD ".length);
+          } else if (line.startsWith("branch ")) {
+            current.branch = line.slice("branch ".length);
+          } else if (line === "bare") {
+            current.bare = true;
+          }
+        }
+        if (current.path) entries.push(current);
+        return entries;
+      }
+      /**
+       * Commit any pending changes inside the worktree to its branch.
+       * Used by the post-spawn hook to capture subagent edits before review.
+       */
+      async commitPending(worktreePath, message) {
+        const sub = simpleGit(worktreePath);
+        const status = await sub.status();
+        if (status.files.length === 0) return null;
+        await sub.add(["-A"]);
+        const afterAdd = await sub.status();
+        if (afterAdd.staged.length === 0) return null;
+        try {
+          const result = await sub.commit(message, [], { "--no-verify": null });
+          return result.commit || null;
+        } catch (err) {
+          if (process.env.WISP_DEBUG) process.stderr.write(`commitPending: ${String(err)}
+`);
+          return null;
+        }
+      }
+      /**
+       * Diff a worktree branch against a base ref. Returns full unified diff text.
+       */
+      async diffAgainst(branch, baseRef) {
+        return await this.git.raw(["diff", `${baseRef}...${branch}`]);
+      }
+      async diffNameStatus(branch, baseRef) {
+        return await this.git.raw(["diff", "--name-status", `${baseRef}...${branch}`]);
+      }
+      async remove(worktreePath, options = {}) {
+        const args = ["worktree", "remove"];
+        if (options.force) args.push("--force");
+        args.push(worktreePath);
+        await this.git.raw(args);
+      }
+      async deleteBranch(branch, options = {}) {
+        await this.git.raw(["branch", options.force ? "-D" : "-d", branch]);
+      }
+      async pruneIfMissing(worktreePath) {
+        if (!existsSync3(worktreePath)) {
+          await this.git.raw(["worktree", "prune"]);
+          return;
+        }
+        rmSync(worktreePath, { recursive: true, force: true });
+        await this.git.raw(["worktree", "prune"]);
+      }
+    };
+  }
+});
+
 // src/wrap/pending-tasks.ts
 import { existsSync as existsSync5, mkdirSync as mkdirSync5, readFileSync as readFileSync3, writeFileSync as writeFileSync4 } from "fs";
 import { dirname as dirname5, resolve as resolve3 } from "path";
@@ -145,6 +279,7 @@ function isValidPending(value) {
   const v = value;
   if (v.version !== 1) return false;
   if (!Array.isArray(v.tasks)) return false;
+  if (v.consumed !== void 0 && !Array.isArray(v.consumed)) return false;
   return true;
 }
 function savePending(repoRoot, state) {
@@ -157,10 +292,27 @@ function enqueueTask(repoRoot, task) {
   state.tasks.push(task);
   savePending(repoRoot, state);
 }
+function hasSeenToolUseId(state, id) {
+  if (!id) return false;
+  if (state.consumed?.includes(id)) return true;
+  for (const t of state.tasks) {
+    if (t.toolUseId === id) return true;
+  }
+  return false;
+}
 function isStale(task, ttlMs, now) {
   const ts = Date.parse(task.queuedAt);
   if (Number.isNaN(ts)) return true;
   return now - ts > ttlMs;
+}
+function rememberConsumed(state, id) {
+  if (!id) return;
+  const list = state.consumed ?? [];
+  list.push(id);
+  if (list.length > CONSUMED_CAP) {
+    list.splice(0, list.length - CONSUMED_CAP);
+  }
+  state.consumed = list;
 }
 function dequeueOldestUnstale(repoRoot, ttlMs = DEFAULT_TTL_MS, now = Date.now()) {
   const state = loadPending(repoRoot);
@@ -170,15 +322,17 @@ function dequeueOldestUnstale(repoRoot, ttlMs = DEFAULT_TTL_MS, now = Date.now()
     return null;
   }
   const next = state.tasks.shift() ?? null;
+  if (next?.toolUseId) rememberConsumed(state, next.toolUseId);
   savePending(repoRoot, state);
   return next;
 }
-var PENDING_FILE, DEFAULT_TTL_MS;
+var PENDING_FILE, DEFAULT_TTL_MS, CONSUMED_CAP;
 var init_pending_tasks = __esm({
   "src/wrap/pending-tasks.ts"() {
     "use strict";
     PENDING_FILE = ".claude/wisp-agentdiff/pending-tasks.json";
     DEFAULT_TTL_MS = 6e4;
+    CONSUMED_CAP = 200;
   }
 });
 
@@ -189,7 +343,7 @@ __export(install_exports, {
   installArtifacts: () => installArtifacts,
   resolvePackageRoot: () => resolvePackageRoot
 });
-import { copyFileSync, existsSync as existsSync6, mkdirSync as mkdirSync7, readFileSync as readFileSync4 } from "fs";
+import { copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync7, readFileSync as readFileSync4 } from "fs";
 import { homedir } from "os";
 import { dirname as dirname7, join as join4, resolve as resolve4 } from "path";
 import { fileURLToPath } from "url";
@@ -207,7 +361,7 @@ function installArtifacts(options = {}) {
   const cmdSrc = join4(pkgRoot, "commands", "review-agents.md");
   const hookSrc = join4(pkgRoot, "templates", "hooks-snippet.json");
   for (const p of [skillSrc, cmdSrc, hookSrc]) {
-    if (!existsSync6(p)) {
+    if (!existsSync7(p)) {
       throw new Error(`required artifact not found at ${p} \u2014 reinstall wisp-agentdiff`);
     }
   }
@@ -706,8 +860,8 @@ var init_diff_parser = __esm({
 });
 
 // src/collect/jsonl-reader.ts
-import { createReadStream, existsSync as existsSync7 } from "fs";
-import { createInterface } from "readline";
+import { createReadStream as createReadStream2, existsSync as existsSync8 } from "fs";
+import { createInterface as createInterface2 } from "readline";
 function emptySummary() {
   return {
     totalTokens: 0,
@@ -768,9 +922,9 @@ function digestEvent(event, into) {
 }
 async function readTranscript(filePath) {
   const summary = emptySummary();
-  if (!existsSync7(filePath)) return summary;
-  const stream = createReadStream(filePath, { encoding: "utf8" });
-  const rl = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
+  if (!existsSync8(filePath)) return summary;
+  const stream = createReadStream2(filePath, { encoding: "utf8" });
+  const rl = createInterface2({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
   for await (const raw of rl) {
     const line = raw.trim();
     if (!line) continue;
@@ -789,10 +943,10 @@ var init_jsonl_reader = __esm({
 });
 
 // src/collect/token-tracker.ts
-import { existsSync as existsSync8, readFileSync as readFileSync5 } from "fs";
+import { existsSync as existsSync9, readFileSync as readFileSync5 } from "fs";
 import { simpleGit as simpleGit3 } from "simple-git";
 async function readLiveDiff(agent) {
-  if (!existsSync8(agent.path)) return "";
+  if (!existsSync9(agent.path)) return "";
   try {
     return await simpleGit3(agent.path).raw(["diff", agent.baseRef]);
   } catch {
@@ -802,7 +956,7 @@ async function readLiveDiff(agent) {
 async function buildAgentReport(agent) {
   let rawDiff = "";
   let diffSource = "missing";
-  if (agent.diffPath && existsSync8(agent.diffPath)) {
+  if (agent.diffPath && existsSync9(agent.diffPath)) {
     const parsed = JSON.parse(readFileSync5(agent.diffPath, "utf8"));
     rawDiff = parsed.unified ?? "";
     diffSource = "stored";
@@ -1234,7 +1388,7 @@ var doctor_exports = {};
 __export(doctor_exports, {
   runDoctor: () => runDoctor
 });
-import { existsSync as existsSync9, readFileSync as readFileSync6, statSync as statSync2 } from "fs";
+import { existsSync as existsSync10, readFileSync as readFileSync6, statSync as statSync2 } from "fs";
 import { homedir as homedir2 } from "os";
 import { dirname as dirname9, join as join6, resolve as resolve5 } from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
@@ -1270,7 +1424,7 @@ async function runDoctor(repoRoot) {
   }
   const thisFile = fileURLToPath2(import.meta.url);
   const distDir = dirname9(thisFile);
-  const distExists = existsSync9(join6(distDir, "index.js"));
+  const distExists = existsSync10(join6(distDir, "index.js"));
   checks.push({
     label: "wisp-agentdiff binary present",
     status: distExists ? "ok" : "fail",
@@ -1278,7 +1432,7 @@ async function runDoctor(repoRoot) {
   });
   const pluginRootCandidate = resolve5(distDir, "..");
   const pluginManifest = join6(pluginRootCandidate, ".claude-plugin", "plugin.json");
-  if (existsSync9(pluginManifest)) {
+  if (existsSync10(pluginManifest)) {
     let version = "unknown";
     try {
       version = JSON.parse(readFileSync6(pluginManifest, "utf8")).version ?? "unknown";
@@ -1297,7 +1451,7 @@ async function runDoctor(repoRoot) {
     });
   }
   const statePath = stateFilePath(root);
-  if (existsSync9(statePath)) {
+  if (existsSync10(statePath)) {
     try {
       const state = JSON.parse(readFileSync6(statePath, "utf8"));
       const age = Date.now() - statSync2(statePath).mtimeMs;
@@ -1323,7 +1477,7 @@ async function runDoctor(repoRoot) {
   }
   const claudeRoot = process.env.CLAUDE_CONFIG_DIR ?? join6(homedir2(), ".claude");
   const skillCopy = join6(claudeRoot, "skills", "wisp-agentdiff", "SKILL.md");
-  if (existsSync9(skillCopy)) {
+  if (existsSync10(skillCopy)) {
     checks.push({
       label: "skill registered in ~/.claude",
       status: "ok",
@@ -1382,6 +1536,227 @@ var init_doctor = __esm({
   }
 });
 
+// src/prune.ts
+var prune_exports = {};
+__export(prune_exports, {
+  runPrune: () => runPrune
+});
+import { existsSync as existsSync11, readdirSync, realpathSync as realpathSync2, statSync as statSync3 } from "fs";
+import { resolve as resolve6 } from "path";
+import { simpleGit as simpleGit5 } from "simple-git";
+function normalize(p) {
+  const abs = resolve6(p);
+  try {
+    return realpathSync2.native ? realpathSync2.native(abs) : realpathSync2(abs);
+  } catch {
+    return abs;
+  }
+}
+function scanFsWorktrees(basePath) {
+  if (!existsSync11(basePath)) return [];
+  let entries;
+  try {
+    entries = readdirSync(basePath);
+  } catch {
+    return [];
+  }
+  const result = [];
+  for (const entry of entries) {
+    const full = resolve6(basePath, entry);
+    try {
+      const st = statSync3(full);
+      if (!st.isDirectory()) continue;
+      result.push({ path: normalize(full), mtimeMs: st.mtimeMs });
+    } catch {
+    }
+  }
+  return result;
+}
+function ageHoursOf(iso, nowMs) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return Number.POSITIVE_INFINITY;
+  return (nowMs - t) / (1e3 * 60 * 60);
+}
+function pathExistsSafely(p) {
+  try {
+    return existsSync11(p);
+  } catch {
+    return false;
+  }
+}
+async function runPrune(options) {
+  const repoRoot = resolve6(options.repoRoot);
+  const olderThanHours = options.olderThanHours ?? DEFAULT_OLDER_THAN_HOURS;
+  const dryRun = options.dryRun === true;
+  const all = options.all === true;
+  const nowMs = Date.now();
+  const state = loadState(repoRoot);
+  const basePath = defaultBasePath(repoRoot);
+  const fsList = scanFsWorktrees(basePath);
+  const result = {
+    scanned: { agents: state.agents.length, fsWorktrees: fsList.length },
+    candidates: [],
+    pruned: [],
+    skipped: [],
+    errors: []
+  };
+  const registeredPaths = /* @__PURE__ */ new Set();
+  for (const a of state.agents) {
+    if (a.path) registeredPaths.add(normalize(a.path));
+  }
+  const stateOrphans = [];
+  const agedOut = [];
+  const keptAgents = [];
+  for (const agent of state.agents) {
+    const onDisk = pathExistsSafely(agent.path);
+    if (!onDisk) {
+      stateOrphans.push(agent);
+      result.candidates.push({
+        kind: "state-orphan",
+        agentId: agent.id,
+        name: agent.name,
+        path: agent.path,
+        branch: agent.branch,
+        reason: "agent recorded in state but worktree path missing on disk"
+      });
+      continue;
+    }
+    const age = ageHoursOf(agent.createdAt, nowMs);
+    if (all || age >= olderThanHours) {
+      agedOut.push(agent);
+      result.candidates.push({
+        kind: "aged-out",
+        agentId: agent.id,
+        name: agent.name,
+        path: agent.path,
+        branch: agent.branch,
+        ageHours: age,
+        reason: all ? "--all: ignore age cutoff" : `worktree older than ${olderThanHours}h (age ${age.toFixed(1)}h)`
+      });
+      continue;
+    }
+    keptAgents.push(agent);
+  }
+  const fsOrphans = [];
+  for (const entry of fsList) {
+    if (registeredPaths.has(entry.path)) continue;
+    fsOrphans.push(entry);
+    result.candidates.push({
+      kind: "fs-orphan",
+      path: entry.path,
+      reason: "worktree directory not referenced by any state entry"
+    });
+  }
+  if (dryRun) {
+    result.skipped = [...result.candidates];
+    logHookEvent(repoRoot, "prune.summary", {
+      dryRun: true,
+      scanned: result.scanned,
+      candidates: result.candidates.length,
+      stateOrphans: stateOrphans.length,
+      fsOrphans: fsOrphans.length,
+      agedOut: agedOut.length
+    });
+    return result;
+  }
+  const git = simpleGit5(repoRoot);
+  const droppedAgentIds = /* @__PURE__ */ new Set();
+  const removeOnDisk = async (item) => {
+    try {
+      await git.raw(["worktree", "remove", "--force", item.path]);
+    } catch (err) {
+      try {
+        await git.raw(["worktree", "prune"]);
+      } catch {
+      }
+      throw err;
+    }
+    if (item.branch) {
+      try {
+        await git.raw(["branch", "-D", item.branch]);
+      } catch {
+      }
+    }
+  };
+  for (const agent of stateOrphans) {
+    const item = {
+      kind: "state-orphan",
+      agentId: agent.id,
+      name: agent.name,
+      path: agent.path,
+      branch: agent.branch,
+      reason: "agent recorded in state but worktree path missing on disk"
+    };
+    if (agent.branch) {
+      try {
+        await git.raw(["branch", "-D", agent.branch]);
+      } catch {
+      }
+    }
+    droppedAgentIds.add(agent.id);
+    result.pruned.push(item);
+  }
+  for (const orphan of fsOrphans) {
+    const item = {
+      kind: "fs-orphan",
+      path: orphan.path,
+      reason: "worktree directory not referenced by any state entry"
+    };
+    try {
+      await git.raw(["worktree", "remove", "--force", orphan.path]);
+      result.pruned.push(item);
+    } catch (err) {
+      result.errors.push({ item, message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  for (const agent of agedOut) {
+    const item = {
+      kind: "aged-out",
+      agentId: agent.id,
+      name: agent.name,
+      path: agent.path,
+      branch: agent.branch,
+      ageHours: ageHoursOf(agent.createdAt, nowMs),
+      reason: `worktree older than ${olderThanHours}h`
+    };
+    try {
+      await removeOnDisk(item);
+      droppedAgentIds.add(agent.id);
+      result.pruned.push(item);
+    } catch (err) {
+      result.errors.push({ item, message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  if (droppedAgentIds.size > 0) {
+    const nextState = {
+      ...state,
+      agents: state.agents.filter((a) => !droppedAgentIds.has(a.id))
+    };
+    saveState(repoRoot, nextState);
+  }
+  logHookEvent(repoRoot, "prune.summary", {
+    dryRun: false,
+    scanned: result.scanned,
+    candidates: result.candidates.length,
+    pruned: result.pruned.length,
+    errors: result.errors.length,
+    stateOrphans: stateOrphans.length,
+    fsOrphans: fsOrphans.length,
+    agedOut: agedOut.length
+  });
+  return result;
+}
+var DEFAULT_OLDER_THAN_HOURS;
+var init_prune = __esm({
+  "src/prune.ts"() {
+    "use strict";
+    init_debug_log();
+    init_state();
+    init_worktree_manager();
+    DEFAULT_OLDER_THAN_HOURS = 24 * 7;
+  }
+});
+
 // src/wrap/pre-tool-use-hook.ts
 var pre_tool_use_hook_exports = {};
 __export(pre_tool_use_hook_exports, {
@@ -1426,138 +1801,9 @@ import { Command } from "commander";
 // src/wrap/post-spawn-hook.ts
 init_debug_log();
 init_state();
+init_worktree_manager();
 import { existsSync as existsSync4, mkdirSync as mkdirSync4, writeFileSync as writeFileSync3 } from "fs";
 import { dirname as dirname4 } from "path";
-
-// src/wrap/worktree-manager.ts
-import { existsSync as existsSync3, mkdirSync as mkdirSync3, realpathSync, rmSync } from "fs";
-import { dirname as dirname3, join as join3, resolve as resolve2 } from "path";
-import { simpleGit } from "simple-git";
-function normalizePath(p) {
-  const abs = resolve2(p);
-  try {
-    return realpathSync.native ? realpathSync.native(abs) : realpathSync(abs);
-  } catch {
-    return abs;
-  }
-}
-var SAFE_NAME = /[^a-zA-Z0-9._-]+/g;
-var RESERVED_NAMES = /* @__PURE__ */ new Set([".", "..", "HEAD"]);
-function sanitizeName(name) {
-  const slug = name.replace(SAFE_NAME, "-").replace(/^[-.]+|[-.]+$/g, "");
-  if (!slug) throw new Error(`worktree name resolves to empty slug: ${name}`);
-  if (RESERVED_NAMES.has(slug)) {
-    throw new Error(`worktree name '${name}' resolves to reserved slug '${slug}'`);
-  }
-  if (slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
-    throw new Error(`worktree name '${name}' contains path-separator or traversal chars`);
-  }
-  return slug;
-}
-var REFNAME_RE = /^[\w][\w./-]{0,199}$/;
-function assertValidRef(ref) {
-  if (!REFNAME_RE.test(ref)) {
-    throw new Error(`invalid git ref '${ref}' \u2014 expected ^[\\w][\\w./-]{0,199}$`);
-  }
-}
-function defaultBasePath(repoRoot) {
-  return join3(repoRoot, ".claude", "worktrees", "wisp-agentdiff");
-}
-var WorktreeManager = class {
-  git;
-  repoRoot;
-  constructor(repoRoot) {
-    this.repoRoot = resolve2(repoRoot);
-    this.git = simpleGit(this.repoRoot);
-  }
-  async resolveHead() {
-    const sha = (await this.git.revparse(["HEAD"])).trim();
-    if (!sha) throw new Error("could not resolve HEAD \u2014 is this a git repo?");
-    return sha;
-  }
-  async create(opts) {
-    const safeName = sanitizeName(opts.name);
-    const branchPrefix = opts.branchPrefix ?? "wisp-agentdiff/agent-";
-    const branch = `${branchPrefix}${safeName}`;
-    const basePath = opts.basePath ?? defaultBasePath(this.repoRoot);
-    const path = join3(basePath, safeName);
-    const baseRef = opts.baseRef ?? await this.resolveHead();
-    assertValidRef(baseRef);
-    if (existsSync3(path)) {
-      throw new Error(`worktree path already exists: ${path}`);
-    }
-    mkdirSync3(dirname3(path), { recursive: true });
-    await this.git.raw(["worktree", "add", "-b", branch, path, "--", baseRef]);
-    return { name: safeName, path: normalizePath(path), branch, baseRef };
-  }
-  async list() {
-    const out = await this.git.raw(["worktree", "list", "--porcelain"]);
-    const entries = [];
-    let current = {};
-    for (const line of out.split(/\r?\n/)) {
-      if (line.startsWith("worktree ")) {
-        if (current.path) entries.push(current);
-        current = { path: normalizePath(line.slice("worktree ".length)), head: "", bare: false };
-      } else if (line.startsWith("HEAD ")) {
-        current.head = line.slice("HEAD ".length);
-      } else if (line.startsWith("branch ")) {
-        current.branch = line.slice("branch ".length);
-      } else if (line === "bare") {
-        current.bare = true;
-      }
-    }
-    if (current.path) entries.push(current);
-    return entries;
-  }
-  /**
-   * Commit any pending changes inside the worktree to its branch.
-   * Used by the post-spawn hook to capture subagent edits before review.
-   */
-  async commitPending(worktreePath, message) {
-    const sub = simpleGit(worktreePath);
-    const status = await sub.status();
-    if (status.files.length === 0) return null;
-    await sub.add(["-A"]);
-    const afterAdd = await sub.status();
-    if (afterAdd.staged.length === 0) return null;
-    try {
-      const result = await sub.commit(message, [], { "--no-verify": null });
-      return result.commit || null;
-    } catch (err) {
-      if (process.env.WISP_DEBUG) process.stderr.write(`commitPending: ${String(err)}
-`);
-      return null;
-    }
-  }
-  /**
-   * Diff a worktree branch against a base ref. Returns full unified diff text.
-   */
-  async diffAgainst(branch, baseRef) {
-    return await this.git.raw(["diff", `${baseRef}...${branch}`]);
-  }
-  async diffNameStatus(branch, baseRef) {
-    return await this.git.raw(["diff", "--name-status", `${baseRef}...${branch}`]);
-  }
-  async remove(worktreePath, options = {}) {
-    const args = ["worktree", "remove"];
-    if (options.force) args.push("--force");
-    args.push(worktreePath);
-    await this.git.raw(args);
-  }
-  async deleteBranch(branch, options = {}) {
-    await this.git.raw(["branch", options.force ? "-D" : "-d", branch]);
-  }
-  async pruneIfMissing(worktreePath) {
-    if (!existsSync3(worktreePath)) {
-      await this.git.raw(["worktree", "prune"]);
-      return;
-    }
-    rmSync(worktreePath, { recursive: true, force: true });
-    await this.git.raw(["worktree", "prune"]);
-  }
-};
-
-// src/wrap/post-spawn-hook.ts
 async function handleWorktreeRemove(payload, deps) {
   if (!payload.name) throw new Error("WorktreeRemove payload missing required `name`");
   const now = deps.now ?? (() => /* @__PURE__ */ new Date());
@@ -1628,6 +1874,56 @@ init_pending_tasks();
 init_state();
 import { mkdirSync as mkdirSync6 } from "fs";
 import { dirname as dirname6 } from "path";
+
+// src/wrap/transcript-correlator.ts
+init_pending_tasks();
+import { createReadStream, existsSync as existsSync6 } from "fs";
+import { createInterface } from "readline";
+async function ingestTranscriptTasks(repoRoot, transcriptPath, opts = {}) {
+  if (!existsSync6(transcriptPath)) return 0;
+  const now = opts.now ?? (() => /* @__PURE__ */ new Date());
+  const state = loadPending(repoRoot);
+  const stream = createReadStream(transcriptPath, { encoding: "utf8" });
+  const rl = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
+  let added = 0;
+  for await (const raw of rl) {
+    const line = raw.trim();
+    if (!line) continue;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (!event || typeof event !== "object") continue;
+    const e = event;
+    if (e.type !== "assistant") continue;
+    const content = e.message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const part of content) {
+      if (!part || typeof part !== "object") continue;
+      const p = part;
+      if (p.type !== "tool_use" || p.name !== "Task") continue;
+      const id = typeof p.id === "string" ? p.id : "";
+      const subagentType = typeof p.input?.subagent_type === "string" ? p.input.subagent_type : "";
+      if (!id || !subagentType) continue;
+      if (hasSeenToolUseId(state, id)) continue;
+      const task = {
+        subagentType,
+        ...typeof p.input?.description === "string" ? { description: p.input.description } : {},
+        toolUseId: id,
+        queuedAt: now().toISOString()
+      };
+      state.tasks.push(task);
+      added++;
+    }
+  }
+  if (added > 0) savePending(repoRoot, state);
+  return added;
+}
+
+// src/wrap/pre-spawn-hook.ts
+init_worktree_manager();
 async function handleWorktreeCreate(payload, deps) {
   if (!payload.name) throw new Error("WorktreeCreate payload missing required `name`");
   const now = deps.now ?? (() => /* @__PURE__ */ new Date());
@@ -1638,6 +1934,20 @@ async function handleWorktreeCreate(payload, deps) {
   });
   const agentId = payload.agentId ?? `agent-${created.name}-${now().getTime().toString(36)}`;
   mkdirSync6(dirname6(created.path), { recursive: true });
+  if (payload.transcript_path) {
+    try {
+      const added = await ingestTranscriptTasks(deps.repoRoot, payload.transcript_path);
+      logHookEvent(deps.repoRoot, "transcript.ingested", {
+        added,
+        transcript: payload.transcript_path
+      });
+    } catch (err) {
+      logHookEvent(deps.repoRoot, "transcript.ingest-error", {
+        transcript: payload.transcript_path,
+        error: err instanceof Error ? err.message : String(err)
+      });
+    }
+  }
   const pending = dequeueOldestUnstale(deps.repoRoot);
   const displayLabel = pending?.subagentType;
   const record = {
@@ -1698,6 +2008,56 @@ program.command("doctor").description("Diagnose plugin install + hook wiring + s
   const code = await runDoctor2(opts.repo);
   process.exit(code);
 });
+program.command("prune").description("Garbage-collect orphaned worktrees + wisp-agentdiff/agent-* branches").option("--repo <dir>", "repository root", process.cwd()).option(
+  "--older-than-hours <hours>",
+  "only prune entries older than N hours (default 168)",
+  "168"
+).option("--all", "ignore age cutoff and prune everything captured").option("--dry-run", "print the plan, do not execute").action(
+  async (opts) => {
+    const { runPrune: runPrune2 } = await Promise.resolve().then(() => (init_prune(), prune_exports));
+    const result = await runPrune2({
+      repoRoot: opts.repo,
+      olderThanHours: Number(opts.olderThanHours),
+      all: opts.all ?? false,
+      dryRun: opts.dryRun ?? false
+    });
+    const counts = { "state-orphan": 0, "fs-orphan": 0, "aged-out": 0 };
+    for (const c of result.candidates) counts[c.kind]++;
+    process.stdout.write(
+      `wisp-agentdiff prune \u2014 scanned ${result.scanned.agents} agents, ${result.scanned.fsWorktrees} fs worktrees
+`
+    );
+    process.stdout.write(
+      `  ${result.candidates.length} candidates: ${counts["state-orphan"]} state-orphan, ${counts["fs-orphan"]} fs-orphan, ${counts["aged-out"]} aged-out
+`
+    );
+    if (opts.dryRun) {
+      for (const c of result.candidates) {
+        const label = c.name ?? c.agentId ?? c.path;
+        process.stdout.write(`  [dry-run] ${c.kind}  ${label}  \u2014 ${c.reason}
+`);
+      }
+    } else {
+      const prunedSet = new Set(result.pruned);
+      for (const c of result.candidates) {
+        const label = c.name ?? c.agentId ?? c.path;
+        const err = result.errors.find((e) => e.item === c);
+        if (err) {
+          process.stdout.write(`  FAIL  ${c.kind}  ${label}  \u2014 ${err.message}
+`);
+        } else if (prunedSet.has(c)) {
+          process.stdout.write(`  OK    ${c.kind}  ${label}
+`);
+        }
+      }
+      process.stdout.write(
+        `pruned ${result.pruned.length} of ${result.candidates.length}, errors ${result.errors.length}
+`
+      );
+    }
+    process.exit(0);
+  }
+);
 var hook = program.command("hook").description("Native Claude Code worktree hook entry points (stdin JSON \u2192 stdout JSON)");
 hook.command("worktree-create").description("Handle WorktreeCreate hook (stdin payload, prints path to stdout)").option("--repo <dir>", "repository root", process.cwd()).action(async (opts) => {
   const payload = readStdinJson();

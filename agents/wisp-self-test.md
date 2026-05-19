@@ -42,16 +42,11 @@ Do exactly this, in order, and nothing else:
    - The absolute path of the worktree you ran in (from step 1's `pwd`).
    - The single file you created and committed.
    - The commit SHA from `git rev-parse HEAD`.
-   - A closing note: "Now run `/review-agents` (or
-     `node \"${CLAUDE_PLUGIN_ROOT}/dist/index.js\" review --repo <project-root>`
-     in your terminal). The TUI will show an agent labelled by its worktree
-     id (e.g. `agent-abe343b9…`) — Claude Code's PreToolUse:Task plugin hook
-     doesn't currently fire reliably, so the friendlier `wisp-self-test`
-     label promised by v1.2.0 will only land in v1.3 once the
-     transcript-path correlation ships. The diff content (the single-line
-     file above) IS captured live by v1.2.1 even though Claude Code never
-     fires WorktreeRemove during the session — `review` reads the worktree
-     directly."
+   - A closing note: "The agent should appear in the TUI labelled
+     `wisp-self-test` (its subagent_type, derived by v1.3 from the session
+     transcript). The diff is the single-line file above. If your
+     worktrees pile up over time, run `wisp-agentdiff prune --dry-run` to
+     see candidates and `wisp-agentdiff prune` to clean them up."
 
 Do not edit anything else. Do not run tests, do not modify config. Five
 actions total, max.

@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { handleWorktreeRemove } from "./wrap/post-spawn-hook.js";
-import { handleWorktreeCreate } from "./wrap/pre-spawn-hook.js";
+import { type WorktreeCreatePayload, handleWorktreeCreate } from "./wrap/pre-spawn-hook.js";
 
 const PKG_VERSION = readPackageVersion();
 
@@ -59,6 +59,58 @@ program
     process.exit(code);
   });
 
+program
+  .command("prune")
+  .description("Garbage-collect orphaned worktrees + wisp-agentdiff/agent-* branches")
+  .option("--repo <dir>", "repository root", process.cwd())
+  .option(
+    "--older-than-hours <hours>",
+    "only prune entries older than N hours (default 168)",
+    "168",
+  )
+  .option("--all", "ignore age cutoff and prune everything captured")
+  .option("--dry-run", "print the plan, do not execute")
+  .action(
+    async (opts: { repo: string; olderThanHours: string; all?: boolean; dryRun?: boolean }) => {
+      const { runPrune } = await import("./prune.js");
+      const result = await runPrune({
+        repoRoot: opts.repo,
+        olderThanHours: Number(opts.olderThanHours),
+        all: opts.all ?? false,
+        dryRun: opts.dryRun ?? false,
+      });
+      const counts = { "state-orphan": 0, "fs-orphan": 0, "aged-out": 0 };
+      for (const c of result.candidates) counts[c.kind]++;
+      process.stdout.write(
+        `wisp-agentdiff prune — scanned ${result.scanned.agents} agents, ${result.scanned.fsWorktrees} fs worktrees\n`,
+      );
+      process.stdout.write(
+        `  ${result.candidates.length} candidates: ${counts["state-orphan"]} state-orphan, ${counts["fs-orphan"]} fs-orphan, ${counts["aged-out"]} aged-out\n`,
+      );
+      if (opts.dryRun) {
+        for (const c of result.candidates) {
+          const label = c.name ?? c.agentId ?? c.path;
+          process.stdout.write(`  [dry-run] ${c.kind}  ${label}  — ${c.reason}\n`);
+        }
+      } else {
+        const prunedSet = new Set(result.pruned);
+        for (const c of result.candidates) {
+          const label = c.name ?? c.agentId ?? c.path;
+          const err = result.errors.find((e) => e.item === c);
+          if (err) {
+            process.stdout.write(`  FAIL  ${c.kind}  ${label}  — ${err.message}\n`);
+          } else if (prunedSet.has(c)) {
+            process.stdout.write(`  OK    ${c.kind}  ${label}\n`);
+          }
+        }
+        process.stdout.write(
+          `pruned ${result.pruned.length} of ${result.candidates.length}, errors ${result.errors.length}\n`,
+        );
+      }
+      process.exit(0);
+    },
+  );
+
 const hook = program
   .command("hook")
   .description("Native Claude Code worktree hook entry points (stdin JSON → stdout JSON)");
@@ -68,7 +120,7 @@ hook
   .description("Handle WorktreeCreate hook (stdin payload, prints path to stdout)")
   .option("--repo <dir>", "repository root", process.cwd())
   .action(async (opts: { repo: string }) => {
-    const payload = readStdinJson<{ name: string; baseRef?: string; agentId?: string }>();
+    const payload = readStdinJson<WorktreeCreatePayload>();
     const result = await handleWorktreeCreate(payload, { repoRoot: opts.repo });
     process.stdout.write(`${result.path}\n`);
     if (process.env.WISP_DEBUG) process.stderr.write(`${JSON.stringify(result)}\n`);

@@ -1,6 +1,6 @@
 ---
 name: wisp-agentdiff
-description: Use when the user asks to "review the agents", "review the subagents", "show me what each agent did", "show the per-agent diffs", "show me each subagent's changes", "open the agent review", "diff per agent", invokes the slash command `/review-agents`, or asks to "test wisp-agentdiff", "verify wisp-agentdiff", "check if wisp-agentdiff is working", or "run wisp-agentdiff doctor". Triggers proactively after a Task tool call that spawned 2+ subagents with isolation:worktree has completed — opens the per-agent diff TUI so the user can approve / revert each subagent independently before anything lands in the working tree.
+description: Use when the user asks to "review the agents", "review the subagents", "show me what each agent did", "show the per-agent diffs", "show me each subagent's changes", "open the agent review", "diff per agent", invokes the slash command `/review-agents`, or asks to "test wisp-agentdiff", "verify wisp-agentdiff", "check if wisp-agentdiff is working", "run wisp-agentdiff doctor", "prune wisp-agentdiff", "clean up wisp-agentdiff", or "garbage collect wisp-agentdiff worktrees". Triggers proactively after a Task tool call that spawned 2+ subagents with isolation:worktree has completed — opens the per-agent diff TUI so the user can approve / revert each subagent independently before anything lands in the working tree.
 ---
 
 # wisp-agentdiff
@@ -53,6 +53,10 @@ Task(subagent_type: "wisp-self-test", description: "verify wisp-agentdiff hooks 
 ```
 
 Then `/review-agents` should show one agent labelled `wisp-self-test` with a single-line diff.
+
+## Pruning
+
+When the user asks to clean up, prune, or garbage-collect accumulated wisp-agentdiff worktrees and `wisp-agentdiff/agent-*` branches, run `wisp-agentdiff prune` (or `node "${CLAUDE_PLUGIN_ROOT}/dist/index.js" prune` for the plugin path). Use `--dry-run` first to preview, `--older-than-hours <N>` (default 168) to bound by age, or `--all` to prune everything captured.
 
 ## Conflicts
 

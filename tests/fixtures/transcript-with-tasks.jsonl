@@ -1,0 +1,5 @@
+{"type":"system","subtype":"start"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Dispatching two agents in parallel."},{"type":"tool_use","name":"Task","id":"toolu_a","input":{"subagent_type":"alpha","description":"alpha work","prompt":"go alpha"}},{"type":"tool_use","name":"Task","id":"toolu_b","input":{"subagent_type":"beta","description":"beta work","prompt":"go beta"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_a","content":"ok"}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Task","id":"toolu_c","input":{"subagent_type":"gamma","description":"gamma work","prompt":"go gamma"}}]}}
+{"type":"result","result":"All done.","duration_ms":1234}

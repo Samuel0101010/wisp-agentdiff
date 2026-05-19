@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   dequeueOldestUnstale,
   enqueueTask,
+  hasSeenToolUseId,
   loadPending,
   pendingTasksPath,
   pruneStale,
@@ -83,5 +84,50 @@ describe("pending-tasks", () => {
       tasks: [{ subagentType: "x", queuedAt: new Date().toISOString() }],
     });
     expect(loadPending(root).tasks).toHaveLength(1);
+  });
+
+  it("dequeueOldestUnstale records toolUseId in consumed list", () => {
+    const t0 = Date.now();
+    enqueueTask(root, {
+      subagentType: "alpha",
+      toolUseId: "toolu_a",
+      queuedAt: new Date(t0).toISOString(),
+    });
+    enqueueTask(root, {
+      subagentType: "beta",
+      toolUseId: "toolu_b",
+      queuedAt: new Date(t0 + 1).toISOString(),
+    });
+    dequeueOldestUnstale(root, 60_000, t0 + 2);
+    const after = loadPending(root);
+    expect(after.consumed).toContain("toolu_a");
+    expect(after.consumed).not.toContain("toolu_b");
+    expect(hasSeenToolUseId(after, "toolu_a")).toBe(true);
+    expect(hasSeenToolUseId(after, "toolu_b")).toBe(true); // still in tasks
+  });
+
+  it("consumed list is FIFO-trimmed at 200 entries", () => {
+    const t0 = Date.now();
+    // Pre-seed 199 consumed ids.
+    const seed: string[] = [];
+    for (let i = 0; i < 199; i++) seed.push(`old_${i}`);
+    savePending(root, { version: 1, tasks: [], consumed: seed });
+
+    // Drain 5 more — total would be 204, must cap at 200 keeping newest.
+    for (let i = 0; i < 5; i++) {
+      enqueueTask(root, {
+        subagentType: `s${i}`,
+        toolUseId: `new_${i}`,
+        queuedAt: new Date(t0 + i).toISOString(),
+      });
+      dequeueOldestUnstale(root, 60_000, t0 + 10);
+    }
+    const consumed = loadPending(root).consumed ?? [];
+    expect(consumed).toHaveLength(200);
+    // Oldest 4 dropped, new ones retained at tail.
+    expect(consumed).not.toContain("old_0");
+    expect(consumed).not.toContain("old_3");
+    expect(consumed).toContain("old_4");
+    expect(consumed.slice(-5)).toEqual(["new_0", "new_1", "new_2", "new_3", "new_4"]);
   });
 });

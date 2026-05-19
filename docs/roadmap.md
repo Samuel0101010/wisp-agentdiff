@@ -4,7 +4,7 @@
 tabbed TUI review → conflict-gated merge. Issues and PRs welcome on
 everything below.
 
-## Shipping in v1.0–v1.2
+## Shipping in v1.0–v1.3
 
 - [x] Native `WorktreeCreate` / `WorktreeRemove` hook handlers
 - [x] Per-agent diff capture with structured `name-status` + full unified diff
@@ -29,16 +29,18 @@ everything below.
   worktree when the cached diff JSON is missing or empty. This is the
   typical path because Claude Code persists subagent worktrees until
   session-end, so `WorktreeRemove` rarely fires during normal review.
+- [x] `transcript_path`-based subagent_type extraction (v1.3.0) — the
+  TUI now labels agents by their real subagent_type (e.g.
+  `wisp-self-test`) by parsing the `transcript_path` Claude Code passes
+  into the WorktreeCreate payload and extracting the most recent `Task`
+  tool invocation. Replaces the unfired-PreToolUse:Task scaffolding.
+- [x] `wisp-agentdiff prune` command (v1.3.0) — garbage-collects
+  orphaned `wisp-agentdiff/agent-*` branches and
+  `.claude/worktrees/wisp-agentdiff/<name>/` directories accumulated
+  across sessions. Supports `--dry-run`, `--older-than-hours <N>`
+  (default 168), and `--all`.
 
 ## Known limitations
-
-- **Agent label in the TUI is Claude Code's hex worktree id, not the
-  subagent_type.** Confirmed via debug.log: Claude Code v2 does not
-  currently invoke plugin-defined `PreToolUse: Task` hooks, so the
-  correlation buffer stays empty and `displayLabel` is never set.
-  v1.3 will switch to parsing the `transcript_path` Claude Code does
-  pass into the WorktreeCreate payload and extracting subagent_type
-  from the most recent `Task` tool invocation in that transcript.
 
 - **Agent status stays `running` indefinitely; cached diffs never write.**
   Claude Code does not fire `WorktreeRemove` on subagent completion
@@ -47,18 +49,8 @@ everything below.
   at review time. The `commitPending` + cached-diff path in
   `WorktreeRemove` remains as a fallback for the orphan-sweep case.
 
-- **Worktree branches accumulate across sessions.** Since
-  `WorktreeRemove` rarely fires, `wisp-agentdiff/agent-*` branches and
-  the `.claude/worktrees/wisp-agentdiff/` subdirectories grow over time.
-  v1.3 will add `wisp-agentdiff prune` to garbage-collect.
+## Probably v1.4+
 
-## Probably v1.3+
-
-- [ ] `transcript_path`-based subagent_type extraction → real
-  `displayLabel` (replaces the unfired PreToolUse:Task scaffolding)
-- [ ] `wisp-agentdiff prune` to garbage-collect orphaned agent branches
-  and `.claude/worktrees/wisp-agentdiff/<name>/` dirs left by
-  unfired WorktreeRemove
 - [ ] Side-by-side conflict diff (currently stacked vertically)
 - [ ] Per-agent transcript pane (currently surfaced as a header summary)
 - [ ] Lazy-render large diffs (deferred parsing for hunks below the fold)

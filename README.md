@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Samuel0101010/wisp-agentdiff/releases"><img src="https://img.shields.io/badge/Release-v1.2.1-C2A148?style=for-the-badge" alt="Release v1.2.1"></a>
+  <a href="https://github.com/Samuel0101010/wisp-agentdiff/releases"><img src="https://img.shields.io/badge/Release-v1.3.0-C2A148?style=for-the-badge" alt="Release v1.3.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Node-%3E%3D20-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node >=20">
@@ -128,7 +128,8 @@ It creates a single-line file inside an isolated worktree. The
 `WorktreeCreate` hook should register it in
 `.claude/wisp-agentdiff-state.json`; `WorktreeRemove` should capture the
 diff. After it finishes, `/review-agents` will show one agent labelled
-`wisp-self-test` (its subagent_type) with that single diff. If you see
+`wisp-self-test` (its real subagent_type, derived from the session
+transcript) with the single-line file above as its diff. If you see
 "no subagents recorded" after the canary runs, the hooks aren't firing —
 open an issue with the output of `wisp-agentdiff doctor`.
 
@@ -161,6 +162,17 @@ If two approved agents touched the same file, the merge step refuses and
 shows you the overlap. You revert one side, then re-press `m`. The tool
 will not write conflict markers, will not pick a winner, and will not
 half-merge then abort — either all approved agents land or none do.
+
+## Pruning
+
+Over many sessions, subagent worktrees and their `wisp-agentdiff/agent-*`
+branches accumulate because Claude Code persists worktrees until
+session-end and `WorktreeRemove` rarely fires. Run `wisp-agentdiff prune`
+to garbage-collect orphaned worktrees and branches; pass
+`wisp-agentdiff prune --dry-run` first to preview what would be removed.
+By default only entries older than `--older-than-hours 168` (one week)
+are considered; pass `--all` to prune every captured wisp-agentdiff
+worktree and branch regardless of age.
 
 ## How it works
 

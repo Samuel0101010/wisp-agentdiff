@@ -3,11 +3,16 @@ import { dirname } from "node:path";
 import { logHookEvent } from "./debug-log.js";
 import { dequeueOldestUnstale } from "./pending-tasks.js";
 import { type AgentRecord, loadState, saveState, upsertAgent } from "./state.js";
+import { ingestTranscriptTasks } from "./transcript-correlator.js";
 import { WorktreeManager } from "./worktree-manager.js";
 
 /**
  * Native Claude Code WorktreeCreate hook payload (stdin JSON).
  * docs: https://code.claude.com/docs/en/worktrees
+ *
+ * The `transcript_path` / `session_id` / `cwd` / `hook_event_name` fields are
+ * observed in real Claude Code v2 payloads (see debug.log of a /plugin install
+ * run). They are optional because older builds and synthetic tests omit them.
  */
 export interface WorktreeCreatePayload {
   /** Worktree slug Claude wants. */
@@ -16,6 +21,14 @@ export interface WorktreeCreatePayload {
   baseRef?: string;
   /** Optional subagent identifier when wrapping a Task call. */
   agentId?: string;
+  /** Absolute path to the session JSONL transcript (used for subagent_type correlation). */
+  transcript_path?: string;
+  /** Claude Code session id. */
+  session_id?: string;
+  /** Claude Code reported working directory. */
+  cwd?: string;
+  /** Hook event name (e.g. "WorktreeCreate"). */
+  hook_event_name?: string;
 }
 
 export interface WorktreeCreateResult {
@@ -49,8 +62,23 @@ export async function handleWorktreeCreate(
   const agentId = payload.agentId ?? `agent-${created.name}-${now().getTime().toString(36)}`;
   mkdirSync(dirname(created.path), { recursive: true });
 
-  // Correlate with the most recent PreToolUse:Task event so the TUI can show
-  // a friendly subagent_type label instead of the opaque worktree slug.
+  if (payload.transcript_path) {
+    try {
+      const added = await ingestTranscriptTasks(deps.repoRoot, payload.transcript_path);
+      logHookEvent(deps.repoRoot, "transcript.ingested", {
+        added,
+        transcript: payload.transcript_path,
+      });
+    } catch (err) {
+      logHookEvent(deps.repoRoot, "transcript.ingest-error", {
+        transcript: payload.transcript_path,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // Correlate with the most recent Task tool_use so the TUI can show a
+  // friendly subagent_type label instead of the opaque worktree slug.
   const pending = dequeueOldestUnstale(deps.repoRoot);
   const displayLabel = pending?.subagentType;
 
