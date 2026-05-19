@@ -9,6 +9,48 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// src/wrap/debug-log.ts
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+} from "fs";
+import { dirname, join } from "path";
+function debugLogPath(repoRoot) {
+  return join(repoRoot, ".claude", "wisp-agentdiff", "debug.log");
+}
+function logHookEvent(repoRoot, event, data) {
+  try {
+    const path = debugLogPath(repoRoot);
+    mkdirSync(dirname(path), { recursive: true });
+    const line = `${(/* @__PURE__ */ new Date()).toISOString()}  ${event}  ${JSON.stringify(data)}
+`;
+    if (existsSync(path)) {
+      try {
+        const size = statSync(path).size;
+        if (size > MAX_LOG_BYTES) {
+          const buf = readFileSync(path);
+          const keep = buf.subarray(buf.length - Math.floor(MAX_LOG_BYTES / 2));
+          writeFileSync(path, keep);
+        }
+      } catch {
+      }
+    }
+    appendFileSync(path, line, "utf8");
+  } catch {
+  }
+}
+var MAX_LOG_BYTES;
+var init_debug_log = __esm({
+  "src/wrap/debug-log.ts"() {
+    "use strict";
+    MAX_LOG_BYTES = 64 * 1024;
+  }
+});
+
 // src/wrap/state.ts
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
 import { dirname as dirname2, join as join2, resolve } from "path";
@@ -71,6 +113,75 @@ var init_state = __esm({
   }
 });
 
+// src/wrap/pending-tasks.ts
+import { existsSync as existsSync5, mkdirSync as mkdirSync5, readFileSync as readFileSync3, writeFileSync as writeFileSync4 } from "fs";
+import { dirname as dirname5, resolve as resolve3 } from "path";
+function pendingTasksPath(repoRoot) {
+  return resolve3(repoRoot, PENDING_FILE);
+}
+function freshPending() {
+  return { version: 1, tasks: [] };
+}
+function loadPending(repoRoot) {
+  const file = pendingTasksPath(repoRoot);
+  if (!existsSync5(file)) return freshPending();
+  let raw;
+  try {
+    raw = readFileSync3(file, "utf8");
+  } catch {
+    return freshPending();
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return freshPending();
+  }
+  if (!isValidPending(parsed)) return freshPending();
+  return parsed;
+}
+function isValidPending(value) {
+  if (!value || typeof value !== "object") return false;
+  const v = value;
+  if (v.version !== 1) return false;
+  if (!Array.isArray(v.tasks)) return false;
+  return true;
+}
+function savePending(repoRoot, state) {
+  const file = pendingTasksPath(repoRoot);
+  mkdirSync5(dirname5(file), { recursive: true });
+  writeFileSync4(file, JSON.stringify(state, null, 2), "utf8");
+}
+function enqueueTask(repoRoot, task) {
+  const state = loadPending(repoRoot);
+  state.tasks.push(task);
+  savePending(repoRoot, state);
+}
+function isStale(task, ttlMs, now) {
+  const ts = Date.parse(task.queuedAt);
+  if (Number.isNaN(ts)) return true;
+  return now - ts > ttlMs;
+}
+function dequeueOldestUnstale(repoRoot, ttlMs = DEFAULT_TTL_MS, now = Date.now()) {
+  const state = loadPending(repoRoot);
+  state.tasks = state.tasks.filter((t) => !isStale(t, ttlMs, now));
+  if (state.tasks.length === 0) {
+    savePending(repoRoot, state);
+    return null;
+  }
+  const next = state.tasks.shift() ?? null;
+  savePending(repoRoot, state);
+  return next;
+}
+var PENDING_FILE, DEFAULT_TTL_MS;
+var init_pending_tasks = __esm({
+  "src/wrap/pending-tasks.ts"() {
+    "use strict";
+    PENDING_FILE = ".claude/wisp-agentdiff/pending-tasks.json";
+    DEFAULT_TTL_MS = 6e4;
+  }
+});
+
 // src/install.ts
 var install_exports = {};
 __export(install_exports, {
@@ -78,16 +189,16 @@ __export(install_exports, {
   installArtifacts: () => installArtifacts,
   resolvePackageRoot: () => resolvePackageRoot
 });
-import { copyFileSync, existsSync as existsSync5, mkdirSync as mkdirSync6, readFileSync as readFileSync3 } from "fs";
+import { copyFileSync, existsSync as existsSync6, mkdirSync as mkdirSync7, readFileSync as readFileSync4 } from "fs";
 import { homedir } from "os";
-import { dirname as dirname6, join as join4, resolve as resolve3 } from "path";
+import { dirname as dirname7, join as join4, resolve as resolve4 } from "path";
 import { fileURLToPath } from "url";
 function defaultTargetDir() {
-  return process.env.CLAUDE_CONFIG_DIR ? resolve3(process.env.CLAUDE_CONFIG_DIR) : join4(homedir(), ".claude");
+  return process.env.CLAUDE_CONFIG_DIR ? resolve4(process.env.CLAUDE_CONFIG_DIR) : join4(homedir(), ".claude");
 }
 function resolvePackageRoot() {
   const thisFile = fileURLToPath(import.meta.url);
-  return resolve3(dirname6(thisFile), "..");
+  return resolve4(dirname7(thisFile), "..");
 }
 function installArtifacts(options = {}) {
   const target = options.targetDir ?? defaultTargetDir();
@@ -96,18 +207,18 @@ function installArtifacts(options = {}) {
   const cmdSrc = join4(pkgRoot, "commands", "review-agents.md");
   const hookSrc = join4(pkgRoot, "templates", "hooks-snippet.json");
   for (const p of [skillSrc, cmdSrc, hookSrc]) {
-    if (!existsSync5(p)) {
+    if (!existsSync6(p)) {
       throw new Error(`required artifact not found at ${p} \u2014 reinstall wisp-agentdiff`);
     }
   }
   const skillDst = join4(target, "skills", "wisp-agentdiff", "SKILL.md");
-  mkdirSync6(dirname6(skillDst), { recursive: true });
+  mkdirSync7(dirname7(skillDst), { recursive: true });
   copyFileSync(skillSrc, skillDst);
   const cmdDst = join4(target, "commands", "review-agents.md");
-  mkdirSync6(dirname6(cmdDst), { recursive: true });
+  mkdirSync7(dirname7(cmdDst), { recursive: true });
   copyFileSync(cmdSrc, cmdDst);
   if (options.printHookSnippet !== false) {
-    const snippet = readFileSync3(hookSrc, "utf8");
+    const snippet = readFileSync4(hookSrc, "utf8");
     process.stdout.write("\n");
     process.stdout.write(`\u2713 Installed skill   \u2192 ${skillDst}
 `);
@@ -595,7 +706,7 @@ var init_diff_parser = __esm({
 });
 
 // src/collect/jsonl-reader.ts
-import { createReadStream, existsSync as existsSync6 } from "fs";
+import { createReadStream, existsSync as existsSync7 } from "fs";
 import { createInterface } from "readline";
 function emptySummary() {
   return {
@@ -657,7 +768,7 @@ function digestEvent(event, into) {
 }
 async function readTranscript(filePath) {
   const summary = emptySummary();
-  if (!existsSync6(filePath)) return summary;
+  if (!existsSync7(filePath)) return summary;
   const stream = createReadStream(filePath, { encoding: "utf8" });
   const rl = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
   for await (const raw of rl) {
@@ -678,11 +789,11 @@ var init_jsonl_reader = __esm({
 });
 
 // src/collect/token-tracker.ts
-import { existsSync as existsSync7, readFileSync as readFileSync4 } from "fs";
+import { existsSync as existsSync8, readFileSync as readFileSync5 } from "fs";
 async function buildAgentReport(agent) {
   let rawDiff = "";
-  if (agent.diffPath && existsSync7(agent.diffPath)) {
-    const parsed = JSON.parse(readFileSync4(agent.diffPath, "utf8"));
+  if (agent.diffPath && existsSync8(agent.diffPath)) {
+    const parsed = JSON.parse(readFileSync5(agent.diffPath, "utf8"));
     rawDiff = parsed.unified ?? "";
   }
   const diff = parseUnifiedDiff(rawDiff);
@@ -740,7 +851,7 @@ var init_tab_bar = __esm({
         ] }),
         /* @__PURE__ */ jsxs3(Text3, { color: active ? "white" : theme.muted, bold: active, children: [
           " ",
-          a.report.agent.name,
+          a.report.agent.displayLabel ?? a.report.agent.name,
           " "
         ] }),
         /* @__PURE__ */ jsx3(Text3, { color: decisionColor[decision], children: decisionGlyph[decision] })
@@ -902,8 +1013,8 @@ var demo_exports = {};
 __export(demo_exports, {
   seedDemo: () => seedDemo
 });
-import { mkdirSync as mkdirSync7, writeFileSync as writeFileSync4 } from "fs";
-import { dirname as dirname7, join as join5 } from "path";
+import { mkdirSync as mkdirSync8, writeFileSync as writeFileSync5 } from "fs";
+import { dirname as dirname8, join as join5 } from "path";
 function seedDemo(repoRoot) {
   const now = /* @__PURE__ */ new Date("2026-05-18T20:00:00Z");
   const state = {
@@ -914,8 +1025,8 @@ function seedDemo(repoRoot) {
   };
   for (const agent of DEMO_AGENTS) {
     const diffPath = diffStoragePath(repoRoot, agent.id);
-    mkdirSync7(dirname7(diffPath), { recursive: true });
-    writeFileSync4(
+    mkdirSync8(dirname8(diffPath), { recursive: true });
+    writeFileSync5(
       diffPath,
       JSON.stringify(
         {
@@ -1105,9 +1216,9 @@ var doctor_exports = {};
 __export(doctor_exports, {
   runDoctor: () => runDoctor
 });
-import { existsSync as existsSync8, readFileSync as readFileSync5, statSync as statSync2 } from "fs";
+import { existsSync as existsSync9, readFileSync as readFileSync6, statSync as statSync2 } from "fs";
 import { homedir as homedir2 } from "os";
-import { dirname as dirname8, join as join6, resolve as resolve4 } from "path";
+import { dirname as dirname9, join as join6, resolve as resolve5 } from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
 import { simpleGit as simpleGit3 } from "simple-git";
 function tag(status) {
@@ -1122,7 +1233,7 @@ function tag(status) {
 }
 async function runDoctor(repoRoot) {
   const checks = [];
-  const root = resolve4(repoRoot);
+  const root = resolve5(repoRoot);
   let gitRoot = null;
   try {
     const out = await simpleGit3(root).revparse(["--show-toplevel"]);
@@ -1140,19 +1251,19 @@ async function runDoctor(repoRoot) {
     });
   }
   const thisFile = fileURLToPath2(import.meta.url);
-  const distDir = dirname8(thisFile);
-  const distExists = existsSync8(join6(distDir, "index.js"));
+  const distDir = dirname9(thisFile);
+  const distExists = existsSync9(join6(distDir, "index.js"));
   checks.push({
     label: "wisp-agentdiff binary present",
     status: distExists ? "ok" : "fail",
     detail: distExists ? join6(distDir, "index.js") : `expected at ${distDir}`
   });
-  const pluginRootCandidate = resolve4(distDir, "..");
+  const pluginRootCandidate = resolve5(distDir, "..");
   const pluginManifest = join6(pluginRootCandidate, ".claude-plugin", "plugin.json");
-  if (existsSync8(pluginManifest)) {
+  if (existsSync9(pluginManifest)) {
     let version = "unknown";
     try {
-      version = JSON.parse(readFileSync5(pluginManifest, "utf8")).version ?? "unknown";
+      version = JSON.parse(readFileSync6(pluginManifest, "utf8")).version ?? "unknown";
     } catch {
     }
     checks.push({
@@ -1168,9 +1279,9 @@ async function runDoctor(repoRoot) {
     });
   }
   const statePath = stateFilePath(root);
-  if (existsSync8(statePath)) {
+  if (existsSync9(statePath)) {
     try {
-      const state = JSON.parse(readFileSync5(statePath, "utf8"));
+      const state = JSON.parse(readFileSync6(statePath, "utf8"));
       const age = Date.now() - statSync2(statePath).mtimeMs;
       const ageStr = age < 6e4 ? `${Math.round(age / 1e3)}s ago` : `${Math.round(age / 6e4)}m ago`;
       checks.push({
@@ -1194,7 +1305,7 @@ async function runDoctor(repoRoot) {
   }
   const claudeRoot = process.env.CLAUDE_CONFIG_DIR ?? join6(homedir2(), ".claude");
   const skillCopy = join6(claudeRoot, "skills", "wisp-agentdiff", "SKILL.md");
-  if (existsSync8(skillCopy)) {
+  if (existsSync9(skillCopy)) {
     checks.push({
       label: "skill registered in ~/.claude",
       status: "ok",
@@ -1253,54 +1364,52 @@ var init_doctor = __esm({
   }
 });
 
+// src/wrap/pre-tool-use-hook.ts
+var pre_tool_use_hook_exports = {};
+__export(pre_tool_use_hook_exports, {
+  handlePreToolUse: () => handlePreToolUse
+});
+function handlePreToolUse(payload, deps) {
+  try {
+    if (!payload || typeof payload !== "object") return;
+    if (payload.tool_name !== "Task") return;
+    const input = payload.tool_input;
+    const subagentType = input?.subagent_type;
+    if (typeof subagentType !== "string" || subagentType.length === 0) return;
+    const now = deps.now ?? (() => /* @__PURE__ */ new Date());
+    const description = typeof input?.description === "string" && input.description.length > 0 ? input.description : void 0;
+    const task = {
+      subagentType,
+      ...description !== void 0 ? { description } : {},
+      queuedAt: now().toISOString()
+    };
+    enqueueTask(deps.repoRoot, task);
+    logHookEvent(deps.repoRoot, "pre-tool-use.queued", {
+      subagentType,
+      hasDescription: description !== void 0
+    });
+  } catch {
+  }
+}
+var init_pre_tool_use_hook = __esm({
+  "src/wrap/pre-tool-use-hook.ts"() {
+    "use strict";
+    init_debug_log();
+    init_pending_tasks();
+  }
+});
+
 // src/index.ts
-import { readFileSync as readFileSync6 } from "fs";
-import { dirname as dirname9, join as join7 } from "path";
+import { readFileSync as readFileSync7 } from "fs";
+import { dirname as dirname10, join as join7 } from "path";
 import { fileURLToPath as fileURLToPath3 } from "url";
 import { Command } from "commander";
 
 // src/wrap/post-spawn-hook.ts
+init_debug_log();
+init_state();
 import { existsSync as existsSync4, mkdirSync as mkdirSync4, writeFileSync as writeFileSync3 } from "fs";
 import { dirname as dirname4 } from "path";
-
-// src/wrap/debug-log.ts
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync
-} from "fs";
-import { dirname, join } from "path";
-var MAX_LOG_BYTES = 64 * 1024;
-function debugLogPath(repoRoot) {
-  return join(repoRoot, ".claude", "wisp-agentdiff", "debug.log");
-}
-function logHookEvent(repoRoot, event, data) {
-  try {
-    const path = debugLogPath(repoRoot);
-    mkdirSync(dirname(path), { recursive: true });
-    const line = `${(/* @__PURE__ */ new Date()).toISOString()}  ${event}  ${JSON.stringify(data)}
-`;
-    if (existsSync(path)) {
-      try {
-        const size = statSync(path).size;
-        if (size > MAX_LOG_BYTES) {
-          const buf = readFileSync(path);
-          const keep = buf.subarray(buf.length - Math.floor(MAX_LOG_BYTES / 2));
-          writeFileSync(path, keep);
-        }
-      } catch {
-      }
-    }
-    appendFileSync(path, line, "utf8");
-  } catch {
-  }
-}
-
-// src/wrap/post-spawn-hook.ts
-init_state();
 
 // src/wrap/worktree-manager.ts
 import { existsSync as existsSync3, mkdirSync as mkdirSync3, realpathSync, rmSync } from "fs";
@@ -1496,9 +1605,11 @@ async function handleWorktreeRemove(payload, deps) {
 }
 
 // src/wrap/pre-spawn-hook.ts
-import { mkdirSync as mkdirSync5 } from "fs";
-import { dirname as dirname5 } from "path";
+init_debug_log();
+init_pending_tasks();
 init_state();
+import { mkdirSync as mkdirSync6 } from "fs";
+import { dirname as dirname6 } from "path";
 async function handleWorktreeCreate(payload, deps) {
   if (!payload.name) throw new Error("WorktreeCreate payload missing required `name`");
   const now = deps.now ?? (() => /* @__PURE__ */ new Date());
@@ -1508,18 +1619,26 @@ async function handleWorktreeCreate(payload, deps) {
     ...payload.baseRef !== void 0 ? { baseRef: payload.baseRef } : {}
   });
   const agentId = payload.agentId ?? `agent-${created.name}-${now().getTime().toString(36)}`;
-  mkdirSync5(dirname5(created.path), { recursive: true });
-  let state = loadState(deps.repoRoot);
-  state = upsertAgent(state, {
+  mkdirSync6(dirname6(created.path), { recursive: true });
+  const pending = dequeueOldestUnstale(deps.repoRoot);
+  const displayLabel = pending?.subagentType;
+  const record = {
     id: agentId,
     name: created.name,
     path: created.path,
     branch: created.branch,
     baseRef: created.baseRef,
     createdAt: now().toISOString(),
-    status: "running"
-  });
+    status: "running",
+    ...displayLabel !== void 0 ? { displayLabel } : {}
+  };
+  let state = loadState(deps.repoRoot);
+  state = upsertAgent(state, record);
   saveState(deps.repoRoot, state);
+  logHookEvent(deps.repoRoot, "worktree-create.label-correlated", {
+    matched: displayLabel !== void 0,
+    ...displayLabel !== void 0 ? { displayLabel } : {}
+  });
   logHookEvent(deps.repoRoot, "worktree-create.registered", {
     agentId,
     name: created.name,
@@ -1570,6 +1689,18 @@ hook.command("worktree-create").description("Handle WorktreeCreate hook (stdin p
   if (process.env.WISP_DEBUG) process.stderr.write(`${JSON.stringify(result)}
 `);
 });
+hook.command("pre-tool-use").description(
+  "Handle PreToolUse hook for matcher 'Task' \u2014 records subagent_type for WorktreeCreate correlation"
+).option("--repo <dir>", "repository root", process.cwd()).action(async (opts) => {
+  const { handlePreToolUse: handlePreToolUse2 } = await Promise.resolve().then(() => (init_pre_tool_use_hook(), pre_tool_use_hook_exports));
+  let payload;
+  try {
+    payload = readStdinJson();
+  } catch {
+    return;
+  }
+  handlePreToolUse2(payload, { repoRoot: opts.repo });
+});
 hook.command("worktree-remove").description("Handle WorktreeRemove hook (stdin payload, captures diff then removes)").option("--repo <dir>", "repository root", process.cwd()).action(async (opts) => {
   const payload = readStdinJson();
   const result = await handleWorktreeRemove(payload, { repoRoot: opts.repo });
@@ -1583,7 +1714,7 @@ function readStdinJson() {
       "expected JSON payload on stdin (hooks pipe their payload \u2014 don't invoke this subcommand interactively)"
     );
   }
-  const buf = readFileSync6(0);
+  const buf = readFileSync7(0);
   if (buf.length > MAX_STDIN_BYTES) {
     throw new Error(`stdin payload exceeds ${MAX_STDIN_BYTES} bytes`);
   }
@@ -1594,8 +1725,8 @@ function readStdinJson() {
 function readPackageVersion() {
   try {
     const thisFile = fileURLToPath3(import.meta.url);
-    const pkgPath = join7(dirname9(thisFile), "..", "package.json");
-    const pkg = JSON.parse(readFileSync6(pkgPath, "utf8"));
+    const pkgPath = join7(dirname10(thisFile), "..", "package.json");
+    const pkg = JSON.parse(readFileSync7(pkgPath, "utf8"));
     return pkg.version ?? "0.0.0";
   } catch {
     return "0.0.0";

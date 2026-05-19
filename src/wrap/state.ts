@@ -11,6 +11,11 @@ export interface AgentRecord {
   completedAt?: string;
   diffPath?: string;
   transcriptPath?: string;
+  /**
+   * Friendly label correlated from `PreToolUse:Task`'s `subagent_type`. Optional
+   * because not every worktree comes from a Task call. UI falls back to `name`.
+   */
+  displayLabel?: string;
   status: "running" | "completed" | "captured" | "removed";
 }
 

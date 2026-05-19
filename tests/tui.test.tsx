@@ -7,11 +7,12 @@ import { App } from "../src/tui/app.js";
 import { initialState, mapKey, reduce } from "../src/tui/hotkeys.js";
 import type { AgentView } from "../src/tui/session.js";
 
-function makeView(name: string, diffText = ""): AgentView {
+function makeView(name: string, diffText = "", displayLabel?: string): AgentView {
   const report: AgentReport = {
     agent: {
       id: `id-${name}`,
       name,
+      ...(displayLabel !== undefined ? { displayLabel } : {}),
       path: `/${name}`,
       branch: `wisp-agentdiff/agent-${name}`,
       baseRef: "HEAD",
@@ -85,6 +86,19 @@ describe("App render", () => {
   it("shows empty-state copy when no agents are recorded", () => {
     const { lastFrame, unmount } = render(<App agents={[]} />);
     expect(lastFrame()).toContain("no subagents");
+    unmount();
+  });
+
+  it("tab bar prefers displayLabel over name when present", () => {
+    const views = [makeView("zzraw01", "", "wisp-self-test"), makeView("beta")];
+    const { lastFrame, unmount } = render(<App agents={views} />);
+    const frame = lastFrame() ?? "";
+    // Tab bar is the first rounded-border block; isolate it so the branch line
+    // (which always contains `name`) doesn't pollute the assertion.
+    const tabBar = frame.split("\n").slice(0, 3).join("\n");
+    expect(tabBar).toContain("wisp-self-test");
+    expect(tabBar).not.toContain("zzraw01");
+    expect(tabBar).toContain("beta");
     unmount();
   });
 

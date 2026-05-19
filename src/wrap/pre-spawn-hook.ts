@@ -1,7 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { logHookEvent } from "./debug-log.js";
-import { loadState, saveState, upsertAgent } from "./state.js";
+import { dequeueOldestUnstale } from "./pending-tasks.js";
+import { type AgentRecord, loadState, saveState, upsertAgent } from "./state.js";
 import { WorktreeManager } from "./worktree-manager.js";
 
 /**
@@ -48,8 +49,12 @@ export async function handleWorktreeCreate(
   const agentId = payload.agentId ?? `agent-${created.name}-${now().getTime().toString(36)}`;
   mkdirSync(dirname(created.path), { recursive: true });
 
-  let state = loadState(deps.repoRoot);
-  state = upsertAgent(state, {
+  // Correlate with the most recent PreToolUse:Task event so the TUI can show
+  // a friendly subagent_type label instead of the opaque worktree slug.
+  const pending = dequeueOldestUnstale(deps.repoRoot);
+  const displayLabel = pending?.subagentType;
+
+  const record: AgentRecord = {
     id: agentId,
     name: created.name,
     path: created.path,
@@ -57,8 +62,17 @@ export async function handleWorktreeCreate(
     baseRef: created.baseRef,
     createdAt: now().toISOString(),
     status: "running",
-  });
+    ...(displayLabel !== undefined ? { displayLabel } : {}),
+  };
+
+  let state = loadState(deps.repoRoot);
+  state = upsertAgent(state, record);
   saveState(deps.repoRoot, state);
+
+  logHookEvent(deps.repoRoot, "worktree-create.label-correlated", {
+    matched: displayLabel !== undefined,
+    ...(displayLabel !== undefined ? { displayLabel } : {}),
+  });
 
   logHookEvent(deps.repoRoot, "worktree-create.registered", {
     agentId,

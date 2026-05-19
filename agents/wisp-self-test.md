@@ -44,11 +44,9 @@ Do exactly this, in order, and nothing else:
    - The commit SHA from `git rev-parse HEAD`.
    - A closing note: "Now run `/review-agents` (or
      `node \"${CLAUDE_PLUGIN_ROOT}/dist/index.js\" review --repo <project-root>`
-     in your terminal). You should see one captured agent whose diff is the
-     single-line file above. If the agent is labelled with a hex worktree id
-     rather than `wisp-self-test`, that is Claude Code's internal worktree
-     naming — wisp-agentdiff v1.1.x cannot yet correlate worktree-id back to
-     subagent_type. The diff content is correct."
+     in your terminal). The agent should appear in the TUI labelled
+     `wisp-self-test` (its subagent_type), with the single-line file above
+     as its only diff."
 
 Do not edit anything else. Do not run tests, do not modify config. Five
 actions total, max.

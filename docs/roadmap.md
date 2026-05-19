@@ -4,7 +4,7 @@
 tabbed TUI review → conflict-gated merge. Issues and PRs welcome on
 everything below.
 
-## Shipping in v1.0–v1.1
+## Shipping in v1.0–v1.2
 
 - [x] Native `WorktreeCreate` / `WorktreeRemove` hook handlers
 - [x] Per-agent diff capture with structured `name-status` + full unified diff
@@ -16,15 +16,12 @@ everything below.
 - [x] CI matrix: Linux / macOS / Windows × Node 20 / 22
 - [x] Claude Code `/plugin install` path (v1.1.0+) with bundled `dist/`, `wisp-self-test` canary, and `doctor` subcommand
 - [x] Hook diagnostic log at `.claude/wisp-agentdiff/debug.log` (v1.1.3)
+- [x] `PreToolUse: Task` correlation so the TUI shows the real subagent_type
+  label (e.g. `wisp-self-test`) instead of Claude Code's internal hex
+  worktree id (v1.2.0)
 
-## Known limitations (carrying into v1.2 architecture work)
+## Known limitations
 
-- **Agent label is Claude Code's internal worktree id, not the subagent_type.**
-  The `WorktreeCreate` payload carries an opaque worktree slug like
-  `abe343b9…`. To surface the actual subagent type (`wisp-self-test`,
-  `Explore`, etc.) in the TUI we need to correlate `WorktreeCreate` with a
-  preceding `PreToolUse: Task` event by timestamp. v1.2 will add that
-  correlation layer.
 - **Diff is empty when a subagent doesn't commit its own edits.** The
   `WorktreeRemove` handler runs `commitPending` (i.e. `git add -A && git
   commit`) on the worktree before computing the diff, but Claude Code may
@@ -35,9 +32,8 @@ everything below.
   produce empty diffs. v1.2 will inspect file system state pre-removal
   and capture a working-tree snapshot as a fallback.
 
-## Probably v1.2+
+## Probably v1.3+
 
-- [ ] `PreToolUse: Task` correlation so the TUI shows real subagent_type labels
 - [ ] Working-tree snapshot fallback when `WorktreeRemove` finds an
   uncommitted-or-already-cleaned worktree
 - [ ] Side-by-side conflict diff (currently stacked vertically)

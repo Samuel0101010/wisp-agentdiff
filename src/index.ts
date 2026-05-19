@@ -75,6 +75,26 @@ hook
   });
 
 hook
+  .command("pre-tool-use")
+  .description(
+    "Handle PreToolUse hook for matcher 'Task' — records subagent_type for WorktreeCreate correlation",
+  )
+  .option("--repo <dir>", "repository root", process.cwd())
+  .action(async (opts: { repo: string }) => {
+    const { handlePreToolUse } = await import("./wrap/pre-tool-use-hook.js");
+    type PreToolUsePayload = Parameters<typeof handlePreToolUse>[0];
+    let payload: PreToolUsePayload;
+    try {
+      payload = readStdinJson<PreToolUsePayload>();
+    } catch {
+      // PreToolUse must never block tool execution — exit silently on bad input
+      return;
+    }
+    handlePreToolUse(payload, { repoRoot: opts.repo });
+    // No stdout — we don't want to influence Claude's tool execution.
+  });
+
+hook
   .command("worktree-remove")
   .description("Handle WorktreeRemove hook (stdin payload, captures diff then removes)")
   .option("--repo <dir>", "repository root", process.cwd())

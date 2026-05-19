@@ -25,7 +25,7 @@ export const TabBar: React.FC<TabBarProps> = ({ agents, activeIndex, decisions }
             </Text>
             <Text color={active ? "white" : theme.muted} bold={active}>
               {" "}
-              {a.report.agent.name}{" "}
+              {a.report.agent.displayLabel ?? a.report.agent.name}{" "}
             </Text>
             <Text color={decisionColor[decision]}>{decisionGlyph[decision]}</Text>
           </Box>
