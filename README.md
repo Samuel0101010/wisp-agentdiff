@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Samuel0101010/wisp-agentdiff/releases"><img src="https://img.shields.io/badge/Release-v1.1.1-C2A148?style=for-the-badge" alt="Release v1.1.1"></a>
+  <a href="https://github.com/Samuel0101010/wisp-agentdiff/releases"><img src="https://img.shields.io/badge/Release-v1.1.2-C2A148?style=for-the-badge" alt="Release v1.1.2"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Node-%3E%3D20-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node >=20">
@@ -99,6 +99,38 @@ That deploys the SKILL and `/review-agents` slash command into
 
 From then on, every subagent Claude Code spawns with
 `isolation: worktree` in its frontmatter is captured automatically.
+
+## Verify the install
+
+Right after `/plugin install` (or `npx wisp-agentdiff install`), the state
+file doesn't exist yet — nothing has run. Two ways to confirm the plugin is
+wired correctly before you trust it on real work:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/dist/index.js" doctor --repo .
+```
+
+Prints `OK` / `WARN` / `FAIL` for: git repo present, binary reachable,
+plugin manifest reachable, state file present (and last modified when),
+skill copy in `~/.claude/`. If everything is `OK` or only `WARN`s, the
+plugin is healthy and just hasn't captured anything yet.
+
+To actually exercise the hook path end-to-end, dispatch the canary
+subagent the plugin ships:
+
+```
+Task(subagent_type: "wisp-self-test",
+     description: "verify wisp-agentdiff hooks fire",
+     prompt: "go")
+```
+
+It creates a single-line file inside an isolated worktree. The
+`WorktreeCreate` hook should register it in
+`.claude/wisp-agentdiff-state.json`; `WorktreeRemove` should capture the
+diff. After it finishes, `/review-agents` will show one agent
+`wisp-self-test` with that single diff. If you see "no subagents
+recorded" after the canary runs, the hooks aren't firing — open an issue
+with the output of `wisp-agentdiff doctor`.
 
 ## Use
 

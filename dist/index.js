@@ -1100,10 +1100,163 @@ index 0000000..9999999
   }
 });
 
-// src/index.ts
-import { readFileSync as readFileSync4 } from "fs";
-import { dirname as dirname7, join as join5 } from "path";
+// src/doctor.ts
+var doctor_exports = {};
+__export(doctor_exports, {
+  runDoctor: () => runDoctor
+});
+import { existsSync as existsSync6, readFileSync as readFileSync4, statSync } from "fs";
+import { homedir as homedir2 } from "os";
+import { dirname as dirname7, join as join5, resolve as resolve4 } from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
+import { simpleGit as simpleGit3 } from "simple-git";
+function tag(status) {
+  switch (status) {
+    case "ok":
+      return `${GREEN}OK  ${RESET}`;
+    case "warn":
+      return `${YELLOW}WARN${RESET}`;
+    case "fail":
+      return `${RED}FAIL${RESET}`;
+  }
+}
+async function runDoctor(repoRoot) {
+  const checks = [];
+  const root = resolve4(repoRoot);
+  let gitRoot = null;
+  try {
+    const out = await simpleGit3(root).revparse(["--show-toplevel"]);
+    gitRoot = out.trim();
+    checks.push({
+      label: "workspace is a git repo",
+      status: "ok",
+      detail: gitRoot
+    });
+  } catch {
+    checks.push({
+      label: "workspace is a git repo",
+      status: "fail",
+      detail: `no git repo at ${root}. WorktreeCreate hooks only fire in git workspaces \u2014 run \`git init\` here first.`
+    });
+  }
+  const thisFile = fileURLToPath2(import.meta.url);
+  const distDir = dirname7(thisFile);
+  const distExists = existsSync6(join5(distDir, "index.js"));
+  checks.push({
+    label: "wisp-agentdiff binary present",
+    status: distExists ? "ok" : "fail",
+    detail: distExists ? join5(distDir, "index.js") : `expected at ${distDir}`
+  });
+  const pluginRootCandidate = resolve4(distDir, "..");
+  const pluginManifest = join5(pluginRootCandidate, ".claude-plugin", "plugin.json");
+  if (existsSync6(pluginManifest)) {
+    let version = "unknown";
+    try {
+      version = JSON.parse(readFileSync4(pluginManifest, "utf8")).version ?? "unknown";
+    } catch {
+    }
+    checks.push({
+      label: "plugin manifest reachable",
+      status: "ok",
+      detail: `${pluginManifest} (v${version})`
+    });
+  } else {
+    checks.push({
+      label: "plugin manifest reachable",
+      status: "warn",
+      detail: `${pluginManifest} not found \u2014 running outside a /plugin install? That's fine for the npm-install path.`
+    });
+  }
+  const statePath = stateFilePath(root);
+  if (existsSync6(statePath)) {
+    try {
+      const state = JSON.parse(readFileSync4(statePath, "utf8"));
+      const age = Date.now() - statSync(statePath).mtimeMs;
+      const ageStr = age < 6e4 ? `${Math.round(age / 1e3)}s ago` : `${Math.round(age / 6e4)}m ago`;
+      checks.push({
+        label: "state file present",
+        status: "ok",
+        detail: `${state.agents.length} agent(s) recorded \u2014 last modified ${ageStr}`
+      });
+    } catch (err) {
+      checks.push({
+        label: "state file present",
+        status: "fail",
+        detail: `state file at ${statePath} is unreadable: ${err instanceof Error ? err.message : String(err)}`
+      });
+    }
+  } else {
+    checks.push({
+      label: "state file present",
+      status: "warn",
+      detail: `${statePath} does not exist yet \u2014 no worktree subagent has run in this directory. Try dispatching the bundled \`wisp-self-test\` subagent to populate it.`
+    });
+  }
+  const claudeRoot = process.env.CLAUDE_CONFIG_DIR ?? join5(homedir2(), ".claude");
+  const skillCopy = join5(claudeRoot, "skills", "wisp-agentdiff", "SKILL.md");
+  if (existsSync6(skillCopy)) {
+    checks.push({
+      label: "skill registered in ~/.claude",
+      status: "ok",
+      detail: skillCopy
+    });
+  } else {
+    checks.push({
+      label: "skill registered in ~/.claude",
+      status: "warn",
+      detail: `${skillCopy} not found \u2014 this is fine if you installed via /plugin install (auto-registered) but not via npm.`
+    });
+  }
+  const banner = `${DIM}\u2500\u2500 wisp-agentdiff doctor \u2014 ${root}${RESET}`;
+  process.stdout.write(`${banner}
+
+`);
+  let firstFail = -1;
+  checks.forEach((c, i) => {
+    process.stdout.write(`  ${tag(c.status)}  ${c.label}
+        ${DIM}${c.detail}${RESET}
+`);
+    if (c.status === "fail" && firstFail < 0) firstFail = i;
+  });
+  process.stdout.write("\n");
+  if (firstFail >= 0) {
+    process.stdout.write(
+      `${RED}One or more checks failed \u2014 fix the first FAIL row before running /review-agents.${RESET}
+`
+    );
+    return 1;
+  }
+  const anyWarn = checks.some((c) => c.status === "warn");
+  if (anyWarn) {
+    process.stdout.write(
+      `${YELLOW}All required checks passed; warnings above explain the empty-state behavior.${RESET}
+`
+    );
+    return 0;
+  }
+  process.stdout.write(
+    `${GREEN}All checks passed \u2014 plugin is wired correctly and state file has captured agents.${RESET}
+`
+  );
+  return 0;
+}
+var GREEN, YELLOW, RED, DIM, RESET;
+var init_doctor = __esm({
+  "src/doctor.ts"() {
+    "use strict";
+    init_state();
+    GREEN = "\x1B[32m";
+    YELLOW = "\x1B[33m";
+    RED = "\x1B[31m";
+    DIM = "\x1B[2m";
+    RESET = "\x1B[0m";
+  }
+});
+
+// src/index.ts
+import { readFileSync as readFileSync5 } from "fs";
+import { dirname as dirname8, join as join6 } from "path";
+import { fileURLToPath as fileURLToPath3 } from "url";
 import { Command } from "commander";
 
 // src/wrap/post-spawn-hook.ts
@@ -1334,6 +1487,11 @@ program.command("demo").description("Seed a synthetic 5-agent session so 'review
   seedDemo2(opts.repo);
   process.stdout.write("seeded demo state \u2014 run: wisp-agentdiff review\n");
 });
+program.command("doctor").description("Diagnose plugin install + hook wiring + state \u2014 prints OK / WARN / FAIL per check").option("--repo <dir>", "repository root", process.cwd()).action(async (opts) => {
+  const { runDoctor: runDoctor2 } = await Promise.resolve().then(() => (init_doctor(), doctor_exports));
+  const code = await runDoctor2(opts.repo);
+  process.exit(code);
+});
 var hook = program.command("hook").description("Native Claude Code worktree hook entry points (stdin JSON \u2192 stdout JSON)");
 hook.command("worktree-create").description("Handle WorktreeCreate hook (stdin payload, prints path to stdout)").option("--repo <dir>", "repository root", process.cwd()).action(async (opts) => {
   const payload = readStdinJson();
@@ -1356,7 +1514,7 @@ function readStdinJson() {
       "expected JSON payload on stdin (hooks pipe their payload \u2014 don't invoke this subcommand interactively)"
     );
   }
-  const buf = readFileSync4(0);
+  const buf = readFileSync5(0);
   if (buf.length > MAX_STDIN_BYTES) {
     throw new Error(`stdin payload exceeds ${MAX_STDIN_BYTES} bytes`);
   }
@@ -1366,9 +1524,9 @@ function readStdinJson() {
 }
 function readPackageVersion() {
   try {
-    const thisFile = fileURLToPath2(import.meta.url);
-    const pkgPath = join5(dirname7(thisFile), "..", "package.json");
-    const pkg = JSON.parse(readFileSync4(pkgPath, "utf8"));
+    const thisFile = fileURLToPath3(import.meta.url);
+    const pkgPath = join6(dirname8(thisFile), "..", "package.json");
+    const pkg = JSON.parse(readFileSync5(pkgPath, "utf8"));
     return pkg.version ?? "0.0.0";
   } catch {
     return "0.0.0";

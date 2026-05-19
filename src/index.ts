@@ -49,6 +49,16 @@ program
     process.stdout.write("seeded demo state — run: wisp-agentdiff review\n");
   });
 
+program
+  .command("doctor")
+  .description("Diagnose plugin install + hook wiring + state — prints OK / WARN / FAIL per check")
+  .option("--repo <dir>", "repository root", process.cwd())
+  .action(async (opts: { repo: string }) => {
+    const { runDoctor } = await import("./doctor.js");
+    const code = await runDoctor(opts.repo);
+    process.exit(code);
+  });
+
 const hook = program
   .command("hook")
   .description("Native Claude Code worktree hook entry points (stdin JSON → stdout JSON)");

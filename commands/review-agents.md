@@ -20,3 +20,14 @@ wisp-agentdiff review
 The TUI lists every subagent the current Claude Code session recorded, with per-agent diff, token + tool-call summary, and cross-agent conflict detection.
 
 Hotkeys: `a` approve · `r` revert · `n`/`p` next/prev agent · `c` toggle conflict view · `m` merge approved · `j`/`k` scroll · `q` quit.
+
+## If the TUI says "no subagents recorded"
+
+The plugin only captures subagents that were spawned with `isolation: worktree` in their definition. If `/review-agents` shows the empty-state message:
+
+1. Run `node "${CLAUDE_PLUGIN_ROOT}/dist/index.js" doctor --repo .` — this checks git repo, binary, manifest, state file, skill registration.
+2. If `doctor` says everything is OK / WARN-only, dispatch the bundled canary to fire the hooks once:
+   `Task(subagent_type: "wisp-self-test", description: "verify wisp-agentdiff hooks fire", prompt: "go")`
+3. Then re-run `/review-agents`. You should now see one agent `wisp-self-test` with a single-line diff.
+
+If the canary runs but state still doesn't update, the WorktreeCreate hook isn't firing — open an issue with the doctor output.
