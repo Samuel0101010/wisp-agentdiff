@@ -9,6 +9,10 @@
   "files": [
     "dist",
     "templates",
+    "skills",
+    "commands",
+    "hooks",
+    ".claude-plugin",
     "README.md",
     "LICENSE"
   ],

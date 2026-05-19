@@ -1,0 +1,22 @@
+{
+  "name": "wisp-agentdiff",
+  "owner": {
+    "name": "Samuel Heftberger",
+    "url": "https://github.com/Samuel0101010"
+  },
+  "plugins": [
+    {
+      "name": "wisp-agentdiff",
+      "source": {
+        "source": "github",
+        "repo": "Samuel0101010/wisp-agentdiff"
+      },
+      "description": "Per-agent diff review for Claude Code parallel subagent workflows.",
+      "version": "1.0.0",
+      "category": "developer-tools",
+      "tags": ["subagents", "git-worktree", "code-review", "tui", "claude-code"],
+      "license": "MIT",
+      "homepage": "https://github.com/Samuel0101010/wisp-agentdiff#readme"
+    }
+  ]
+}

@@ -33,25 +33,28 @@ export function resolvePackageRoot(): string {
 export function installArtifacts(options: InstallOptions = {}): InstallResult {
   const target = options.targetDir ?? defaultTargetDir();
   const pkgRoot = options.packageRoot ?? resolvePackageRoot();
-  const templates = join(pkgRoot, "templates");
 
-  if (!existsSync(templates)) {
-    throw new Error(
-      `templates/ not found at ${templates} — reinstall wisp-agentdiff or pass packageRoot`,
-    );
+  // Source paths now mirror the plugin layout — skill/command live at the
+  // same relative paths inside the package that they will live at inside
+  // ~/.claude.  templates/hooks-snippet.json is still kept for the
+  // `npx wisp-agentdiff install` flow's printed copy-paste hint.
+  const skillSrc = join(pkgRoot, "skills", "wisp-agentdiff", "SKILL.md");
+  const cmdSrc = join(pkgRoot, "commands", "review-agents.md");
+  const hookSrc = join(pkgRoot, "templates", "hooks-snippet.json");
+
+  for (const p of [skillSrc, cmdSrc, hookSrc]) {
+    if (!existsSync(p)) {
+      throw new Error(`required artifact not found at ${p} — reinstall wisp-agentdiff`);
+    }
   }
 
-  const skillSrc = join(templates, "skill.md");
   const skillDst = join(target, "skills", "wisp-agentdiff", "SKILL.md");
   mkdirSync(dirname(skillDst), { recursive: true });
   copyFileSync(skillSrc, skillDst);
 
-  const cmdSrc = join(templates, "review-agents.md");
   const cmdDst = join(target, "commands", "review-agents.md");
   mkdirSync(dirname(cmdDst), { recursive: true });
   copyFileSync(cmdSrc, cmdDst);
-
-  const hookSrc = join(templates, "hooks-snippet.json");
 
   if (options.printHookSnippet !== false) {
     const snippet = readFileSync(hookSrc, "utf8");
@@ -63,10 +66,9 @@ export function installArtifacts(options: InstallOptions = {}): InstallResult {
     process.stdout.write(`Add this block to ${join(target, "settings.json")}:\n\n`);
     process.stdout.write(snippet);
     process.stdout.write("\n");
-    process.stdout.write(
-      "Then in any repo, run a Task with isolation: worktree in its frontmatter,\n",
-    );
-    process.stdout.write("and afterwards open the review with: wisp-agentdiff review\n");
+    process.stdout.write("Tip: if you'd rather Claude Code wire the hooks itself, run\n");
+    process.stdout.write("  /plugin install Samuel0101010/wisp-agentdiff\n");
+    process.stdout.write("inside any Claude Code session — that path skips this manual step.\n");
   }
 
   return { skillPath: skillDst, commandPath: cmdDst, hookSnippetPath: hookSrc };

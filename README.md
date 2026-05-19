@@ -55,13 +55,34 @@ merge markers, no theirs/ours guessing.
 
 ## Install
 
+Two equivalent paths — pick one.
+
+### Option A — Claude Code plugin (one-step, recommended)
+
+Inside any Claude Code session:
+
+```text
+/plugin marketplace add Samuel0101010/wisp-agentdiff
+/plugin install wisp-agentdiff@wisp-agentdiff
+```
+
+Claude Code clones the repo, registers the `wisp-agentdiff` skill and
+`/review-agents` slash command, and wires the native `WorktreeCreate` /
+`WorktreeRemove` hooks automatically. No `settings.json` edit required.
+
+The hooks invoke `npx -y wisp-agentdiff@latest` on first use — first
+worktree capture incurs a one-time ~1 s download, every subsequent
+call is local-cached.
+
+### Option B — npm + manual hook snippet
+
 ```bash
 npx wisp-agentdiff install
 ```
 
-That deploys the SKILL and `/review-agents` slash command into `~/.claude/`
-and prints a hook snippet. Paste the snippet into `~/.claude/settings.json`
-once:
+That deploys the SKILL and `/review-agents` slash command into
+`~/.claude/` and prints the hook snippet. Paste the snippet into
+`~/.claude/settings.json` once:
 
 ```jsonc
 {

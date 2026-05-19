@@ -1,0 +1,24 @@
+{
+  "name": "wisp-agentdiff",
+  "version": "1.0.0",
+  "description": "Per-agent diff review for Claude Code parallel subagent workflows. Each subagent worktree captured automatically, tabbed TUI to approve, revert, or merge each one independently.",
+  "author": {
+    "name": "Samuel Heftberger",
+    "url": "https://github.com/Samuel0101010"
+  },
+  "homepage": "https://github.com/Samuel0101010/wisp-agentdiff#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Samuel0101010/wisp-agentdiff"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "subagents",
+    "git-worktree",
+    "diff",
+    "code-review",
+    "tui",
+    "multi-agent"
+  ]
+}
