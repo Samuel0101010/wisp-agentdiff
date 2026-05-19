@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y wisp-agentdiff@latest hook worktree-create"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/index.js\" hook worktree-create"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y wisp-agentdiff@latest hook worktree-remove"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/index.js\" hook worktree-remove"
           }
         ]
       }
