@@ -1,5 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { logHookEvent } from "./debug-log.js";
 import { loadState, saveState, upsertAgent } from "./state.js";
 import { WorktreeManager } from "./worktree-manager.js";
 
@@ -58,6 +59,15 @@ export async function handleWorktreeCreate(
     status: "running",
   });
   saveState(deps.repoRoot, state);
+
+  logHookEvent(deps.repoRoot, "worktree-create.registered", {
+    agentId,
+    name: created.name,
+    path: created.path,
+    branch: created.branch,
+    baseRef: created.baseRef,
+    payloadKeys: Object.keys(payload),
+  });
 
   return { path: created.path, branch: created.branch, agentId };
 }

@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { logHookEvent } from "./debug-log.js";
 import { type AgentRecord, diffStoragePath, loadState, saveState, upsertAgent } from "./state.js";
 import { WorktreeManager } from "./worktree-manager.js";
 
@@ -43,14 +44,40 @@ export async function handleWorktreeRemove(
     state.agents.find((a) => a.name === payload.name);
 
   if (!agent) {
+    logHookEvent(deps.repoRoot, "worktree-remove.no-agent", {
+      name: payload.name,
+      agentIdHint: payload.agentId ?? null,
+      knownAgents: state.agents.map((a) => ({ id: a.id, name: a.name })),
+    });
     throw new Error(`no recorded agent for worktree '${payload.name}'`);
   }
 
-  await manager.commitPending(agent.path, "wisp-agentdiff: capture subagent edits");
+  const worktreeExists = existsSync(agent.path);
+  const commitSha = await manager
+    .commitPending(agent.path, "wisp-agentdiff: capture subagent edits")
+    .catch((err) => {
+      logHookEvent(deps.repoRoot, "worktree-remove.commit-error", {
+        agentId: agent.id,
+        path: agent.path,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    });
 
   const unified = await manager.diffAgainst(agent.branch, agent.baseRef);
   const nameStatus = await manager.diffNameStatus(agent.branch, agent.baseRef);
   const filesChanged = nameStatus.split(/\r?\n/).filter((l) => l.trim().length > 0).length;
+
+  logHookEvent(deps.repoRoot, "worktree-remove.captured", {
+    agentId: agent.id,
+    name: agent.name,
+    path: agent.path,
+    worktreeExisted: worktreeExists,
+    autoCommitSha: commitSha,
+    filesChanged,
+    diffEmpty: unified.length === 0,
+    diffBytes: unified.length,
+  });
 
   const diffPath = diffStoragePath(deps.repoRoot, agent.id);
   mkdirSync(dirname(diffPath), { recursive: true });

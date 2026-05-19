@@ -1,6 +1,6 @@
 {
   "name": "wisp-agentdiff",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Per-agent diff review for Claude Code parallel subagent workflows. Each subagent worktree captured automatically, tabbed TUI to approve, revert, or merge each one independently.",
   "author": {
     "name": "Samuel Heftberger",

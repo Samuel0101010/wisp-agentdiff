@@ -10,8 +10,8 @@ var __export = (target, all) => {
 };
 
 // src/wrap/state.ts
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname, join, resolve } from "path";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
+import { dirname as dirname2, join as join2, resolve } from "path";
 function stateFilePath(repoRoot) {
   return resolve(repoRoot, STATE_FILE);
 }
@@ -25,8 +25,8 @@ function freshState(repoRoot) {
 }
 function loadState(repoRoot) {
   const file = stateFilePath(repoRoot);
-  if (!existsSync(file)) return freshState(repoRoot);
-  const raw = readFileSync(file, "utf8");
+  if (!existsSync2(file)) return freshState(repoRoot);
+  const raw = readFileSync2(file, "utf8");
   let parsed;
   try {
     parsed = JSON.parse(raw);
@@ -47,8 +47,8 @@ function isValidState(value) {
 }
 function saveState(repoRoot, state) {
   const file = stateFilePath(repoRoot);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(state, null, 2), "utf8");
+  mkdirSync2(dirname2(file), { recursive: true });
+  writeFileSync2(file, JSON.stringify(state, null, 2), "utf8");
 }
 function upsertAgent(state, agent) {
   const idx = state.agents.findIndex((a) => a.id === agent.id);
@@ -61,7 +61,7 @@ function upsertAgent(state, agent) {
   return next;
 }
 function diffStoragePath(repoRoot, agentId) {
-  return join(repoRoot, ".claude", "wisp-agentdiff", "diffs", `${agentId}.json`);
+  return join2(repoRoot, ".claude", "wisp-agentdiff", "diffs", `${agentId}.json`);
 }
 var STATE_FILE;
 var init_state = __esm({
@@ -78,36 +78,36 @@ __export(install_exports, {
   installArtifacts: () => installArtifacts,
   resolvePackageRoot: () => resolvePackageRoot
 });
-import { copyFileSync, existsSync as existsSync3, mkdirSync as mkdirSync5, readFileSync as readFileSync2 } from "fs";
+import { copyFileSync, existsSync as existsSync5, mkdirSync as mkdirSync6, readFileSync as readFileSync3 } from "fs";
 import { homedir } from "os";
-import { dirname as dirname5, join as join3, resolve as resolve3 } from "path";
+import { dirname as dirname6, join as join4, resolve as resolve3 } from "path";
 import { fileURLToPath } from "url";
 function defaultTargetDir() {
-  return process.env.CLAUDE_CONFIG_DIR ? resolve3(process.env.CLAUDE_CONFIG_DIR) : join3(homedir(), ".claude");
+  return process.env.CLAUDE_CONFIG_DIR ? resolve3(process.env.CLAUDE_CONFIG_DIR) : join4(homedir(), ".claude");
 }
 function resolvePackageRoot() {
   const thisFile = fileURLToPath(import.meta.url);
-  return resolve3(dirname5(thisFile), "..");
+  return resolve3(dirname6(thisFile), "..");
 }
 function installArtifacts(options = {}) {
   const target = options.targetDir ?? defaultTargetDir();
   const pkgRoot = options.packageRoot ?? resolvePackageRoot();
-  const skillSrc = join3(pkgRoot, "skills", "wisp-agentdiff", "SKILL.md");
-  const cmdSrc = join3(pkgRoot, "commands", "review-agents.md");
-  const hookSrc = join3(pkgRoot, "templates", "hooks-snippet.json");
+  const skillSrc = join4(pkgRoot, "skills", "wisp-agentdiff", "SKILL.md");
+  const cmdSrc = join4(pkgRoot, "commands", "review-agents.md");
+  const hookSrc = join4(pkgRoot, "templates", "hooks-snippet.json");
   for (const p of [skillSrc, cmdSrc, hookSrc]) {
-    if (!existsSync3(p)) {
+    if (!existsSync5(p)) {
       throw new Error(`required artifact not found at ${p} \u2014 reinstall wisp-agentdiff`);
     }
   }
-  const skillDst = join3(target, "skills", "wisp-agentdiff", "SKILL.md");
-  mkdirSync5(dirname5(skillDst), { recursive: true });
+  const skillDst = join4(target, "skills", "wisp-agentdiff", "SKILL.md");
+  mkdirSync6(dirname6(skillDst), { recursive: true });
   copyFileSync(skillSrc, skillDst);
-  const cmdDst = join3(target, "commands", "review-agents.md");
-  mkdirSync5(dirname5(cmdDst), { recursive: true });
+  const cmdDst = join4(target, "commands", "review-agents.md");
+  mkdirSync6(dirname6(cmdDst), { recursive: true });
   copyFileSync(cmdSrc, cmdDst);
   if (options.printHookSnippet !== false) {
-    const snippet = readFileSync2(hookSrc, "utf8");
+    const snippet = readFileSync3(hookSrc, "utf8");
     process.stdout.write("\n");
     process.stdout.write(`\u2713 Installed skill   \u2192 ${skillDst}
 `);
@@ -115,7 +115,7 @@ function installArtifacts(options = {}) {
 `);
     process.stdout.write("\n");
     process.stdout.write("Next step \u2014 wire the native Claude Code worktree hooks.\n");
-    process.stdout.write(`Add this block to ${join3(target, "settings.json")}:
+    process.stdout.write(`Add this block to ${join4(target, "settings.json")}:
 
 `);
     process.stdout.write(snippet);
@@ -595,7 +595,7 @@ var init_diff_parser = __esm({
 });
 
 // src/collect/jsonl-reader.ts
-import { createReadStream, existsSync as existsSync4 } from "fs";
+import { createReadStream, existsSync as existsSync6 } from "fs";
 import { createInterface } from "readline";
 function emptySummary() {
   return {
@@ -657,7 +657,7 @@ function digestEvent(event, into) {
 }
 async function readTranscript(filePath) {
   const summary = emptySummary();
-  if (!existsSync4(filePath)) return summary;
+  if (!existsSync6(filePath)) return summary;
   const stream = createReadStream(filePath, { encoding: "utf8" });
   const rl = createInterface({ input: stream, crlfDelay: Number.POSITIVE_INFINITY });
   for await (const raw of rl) {
@@ -678,11 +678,11 @@ var init_jsonl_reader = __esm({
 });
 
 // src/collect/token-tracker.ts
-import { existsSync as existsSync5, readFileSync as readFileSync3 } from "fs";
+import { existsSync as existsSync7, readFileSync as readFileSync4 } from "fs";
 async function buildAgentReport(agent) {
   let rawDiff = "";
-  if (agent.diffPath && existsSync5(agent.diffPath)) {
-    const parsed = JSON.parse(readFileSync3(agent.diffPath, "utf8"));
+  if (agent.diffPath && existsSync7(agent.diffPath)) {
+    const parsed = JSON.parse(readFileSync4(agent.diffPath, "utf8"));
     rawDiff = parsed.unified ?? "";
   }
   const diff = parseUnifiedDiff(rawDiff);
@@ -902,8 +902,8 @@ var demo_exports = {};
 __export(demo_exports, {
   seedDemo: () => seedDemo
 });
-import { mkdirSync as mkdirSync6, writeFileSync as writeFileSync3 } from "fs";
-import { dirname as dirname6, join as join4 } from "path";
+import { mkdirSync as mkdirSync7, writeFileSync as writeFileSync4 } from "fs";
+import { dirname as dirname7, join as join5 } from "path";
 function seedDemo(repoRoot) {
   const now = /* @__PURE__ */ new Date("2026-05-18T20:00:00Z");
   const state = {
@@ -914,8 +914,8 @@ function seedDemo(repoRoot) {
   };
   for (const agent of DEMO_AGENTS) {
     const diffPath = diffStoragePath(repoRoot, agent.id);
-    mkdirSync6(dirname6(diffPath), { recursive: true });
-    writeFileSync3(
+    mkdirSync7(dirname7(diffPath), { recursive: true });
+    writeFileSync4(
       diffPath,
       JSON.stringify(
         {
@@ -934,7 +934,7 @@ function seedDemo(repoRoot) {
     state.agents.push({
       id: agent.id,
       name: agent.name,
-      path: join4(repoRoot, ".claude", "worktrees", "wisp-agentdiff", agent.name),
+      path: join5(repoRoot, ".claude", "worktrees", "wisp-agentdiff", agent.name),
       branch: `wisp-agentdiff/agent-${agent.name}`,
       baseRef: agent.baseRef,
       createdAt: now.toISOString(),
@@ -1105,9 +1105,9 @@ var doctor_exports = {};
 __export(doctor_exports, {
   runDoctor: () => runDoctor
 });
-import { existsSync as existsSync6, readFileSync as readFileSync4, statSync } from "fs";
+import { existsSync as existsSync8, readFileSync as readFileSync5, statSync as statSync2 } from "fs";
 import { homedir as homedir2 } from "os";
-import { dirname as dirname7, join as join5, resolve as resolve4 } from "path";
+import { dirname as dirname8, join as join6, resolve as resolve4 } from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
 import { simpleGit as simpleGit3 } from "simple-git";
 function tag(status) {
@@ -1140,19 +1140,19 @@ async function runDoctor(repoRoot) {
     });
   }
   const thisFile = fileURLToPath2(import.meta.url);
-  const distDir = dirname7(thisFile);
-  const distExists = existsSync6(join5(distDir, "index.js"));
+  const distDir = dirname8(thisFile);
+  const distExists = existsSync8(join6(distDir, "index.js"));
   checks.push({
     label: "wisp-agentdiff binary present",
     status: distExists ? "ok" : "fail",
-    detail: distExists ? join5(distDir, "index.js") : `expected at ${distDir}`
+    detail: distExists ? join6(distDir, "index.js") : `expected at ${distDir}`
   });
   const pluginRootCandidate = resolve4(distDir, "..");
-  const pluginManifest = join5(pluginRootCandidate, ".claude-plugin", "plugin.json");
-  if (existsSync6(pluginManifest)) {
+  const pluginManifest = join6(pluginRootCandidate, ".claude-plugin", "plugin.json");
+  if (existsSync8(pluginManifest)) {
     let version = "unknown";
     try {
-      version = JSON.parse(readFileSync4(pluginManifest, "utf8")).version ?? "unknown";
+      version = JSON.parse(readFileSync5(pluginManifest, "utf8")).version ?? "unknown";
     } catch {
     }
     checks.push({
@@ -1168,10 +1168,10 @@ async function runDoctor(repoRoot) {
     });
   }
   const statePath = stateFilePath(root);
-  if (existsSync6(statePath)) {
+  if (existsSync8(statePath)) {
     try {
-      const state = JSON.parse(readFileSync4(statePath, "utf8"));
-      const age = Date.now() - statSync(statePath).mtimeMs;
+      const state = JSON.parse(readFileSync5(statePath, "utf8"));
+      const age = Date.now() - statSync2(statePath).mtimeMs;
       const ageStr = age < 6e4 ? `${Math.round(age / 1e3)}s ago` : `${Math.round(age / 6e4)}m ago`;
       checks.push({
         label: "state file present",
@@ -1192,9 +1192,9 @@ async function runDoctor(repoRoot) {
       detail: `${statePath} does not exist yet \u2014 no worktree subagent has run in this directory. Try dispatching the bundled \`wisp-self-test\` subagent to populate it.`
     });
   }
-  const claudeRoot = process.env.CLAUDE_CONFIG_DIR ?? join5(homedir2(), ".claude");
-  const skillCopy = join5(claudeRoot, "skills", "wisp-agentdiff", "SKILL.md");
-  if (existsSync6(skillCopy)) {
+  const claudeRoot = process.env.CLAUDE_CONFIG_DIR ?? join6(homedir2(), ".claude");
+  const skillCopy = join6(claudeRoot, "skills", "wisp-agentdiff", "SKILL.md");
+  if (existsSync8(skillCopy)) {
     checks.push({
       label: "skill registered in ~/.claude",
       status: "ok",
@@ -1254,19 +1254,57 @@ var init_doctor = __esm({
 });
 
 // src/index.ts
-import { readFileSync as readFileSync5 } from "fs";
-import { dirname as dirname8, join as join6 } from "path";
+import { readFileSync as readFileSync6 } from "fs";
+import { dirname as dirname9, join as join7 } from "path";
 import { fileURLToPath as fileURLToPath3 } from "url";
 import { Command } from "commander";
 
 // src/wrap/post-spawn-hook.ts
+import { existsSync as existsSync4, mkdirSync as mkdirSync4, writeFileSync as writeFileSync3 } from "fs";
+import { dirname as dirname4 } from "path";
+
+// src/wrap/debug-log.ts
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+} from "fs";
+import { dirname, join } from "path";
+var MAX_LOG_BYTES = 64 * 1024;
+function debugLogPath(repoRoot) {
+  return join(repoRoot, ".claude", "wisp-agentdiff", "debug.log");
+}
+function logHookEvent(repoRoot, event, data) {
+  try {
+    const path = debugLogPath(repoRoot);
+    mkdirSync(dirname(path), { recursive: true });
+    const line = `${(/* @__PURE__ */ new Date()).toISOString()}  ${event}  ${JSON.stringify(data)}
+`;
+    if (existsSync(path)) {
+      try {
+        const size = statSync(path).size;
+        if (size > MAX_LOG_BYTES) {
+          const buf = readFileSync(path);
+          const keep = buf.subarray(buf.length - Math.floor(MAX_LOG_BYTES / 2));
+          writeFileSync(path, keep);
+        }
+      } catch {
+      }
+    }
+    appendFileSync(path, line, "utf8");
+  } catch {
+  }
+}
+
+// src/wrap/post-spawn-hook.ts
 init_state();
-import { mkdirSync as mkdirSync3, writeFileSync as writeFileSync2 } from "fs";
-import { dirname as dirname3 } from "path";
 
 // src/wrap/worktree-manager.ts
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, realpathSync, rmSync } from "fs";
-import { dirname as dirname2, join as join2, resolve as resolve2 } from "path";
+import { existsSync as existsSync3, mkdirSync as mkdirSync3, realpathSync, rmSync } from "fs";
+import { dirname as dirname3, join as join3, resolve as resolve2 } from "path";
 import { simpleGit } from "simple-git";
 function normalizePath(p) {
   const abs = resolve2(p);
@@ -1296,7 +1334,7 @@ function assertValidRef(ref) {
   }
 }
 function defaultBasePath(repoRoot) {
-  return join2(repoRoot, ".claude", "worktrees", "wisp-agentdiff");
+  return join3(repoRoot, ".claude", "worktrees", "wisp-agentdiff");
 }
 var WorktreeManager = class {
   git;
@@ -1315,13 +1353,13 @@ var WorktreeManager = class {
     const branchPrefix = opts.branchPrefix ?? "wisp-agentdiff/agent-";
     const branch = `${branchPrefix}${safeName}`;
     const basePath = opts.basePath ?? defaultBasePath(this.repoRoot);
-    const path = join2(basePath, safeName);
+    const path = join3(basePath, safeName);
     const baseRef = opts.baseRef ?? await this.resolveHead();
     assertValidRef(baseRef);
-    if (existsSync2(path)) {
+    if (existsSync3(path)) {
       throw new Error(`worktree path already exists: ${path}`);
     }
-    mkdirSync2(dirname2(path), { recursive: true });
+    mkdirSync3(dirname3(path), { recursive: true });
     await this.git.raw(["worktree", "add", "-b", branch, path, "--", baseRef]);
     return { name: safeName, path: normalizePath(path), branch, baseRef };
   }
@@ -1383,7 +1421,7 @@ var WorktreeManager = class {
     await this.git.raw(["branch", options.force ? "-D" : "-d", branch]);
   }
   async pruneIfMissing(worktreePath) {
-    if (!existsSync2(worktreePath)) {
+    if (!existsSync3(worktreePath)) {
       await this.git.raw(["worktree", "prune"]);
       return;
     }
@@ -1400,14 +1438,37 @@ async function handleWorktreeRemove(payload, deps) {
   let state = loadState(deps.repoRoot);
   const agent = (payload.agentId ? state.agents.find((a) => a.id === payload.agentId) : void 0) ?? state.agents.find((a) => a.name === payload.name);
   if (!agent) {
+    logHookEvent(deps.repoRoot, "worktree-remove.no-agent", {
+      name: payload.name,
+      agentIdHint: payload.agentId ?? null,
+      knownAgents: state.agents.map((a) => ({ id: a.id, name: a.name }))
+    });
     throw new Error(`no recorded agent for worktree '${payload.name}'`);
   }
-  await manager.commitPending(agent.path, "wisp-agentdiff: capture subagent edits");
+  const worktreeExists = existsSync4(agent.path);
+  const commitSha = await manager.commitPending(agent.path, "wisp-agentdiff: capture subagent edits").catch((err) => {
+    logHookEvent(deps.repoRoot, "worktree-remove.commit-error", {
+      agentId: agent.id,
+      path: agent.path,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    return null;
+  });
   const unified = await manager.diffAgainst(agent.branch, agent.baseRef);
   const nameStatus = await manager.diffNameStatus(agent.branch, agent.baseRef);
   const filesChanged = nameStatus.split(/\r?\n/).filter((l) => l.trim().length > 0).length;
+  logHookEvent(deps.repoRoot, "worktree-remove.captured", {
+    agentId: agent.id,
+    name: agent.name,
+    path: agent.path,
+    worktreeExisted: worktreeExists,
+    autoCommitSha: commitSha,
+    filesChanged,
+    diffEmpty: unified.length === 0,
+    diffBytes: unified.length
+  });
   const diffPath = diffStoragePath(deps.repoRoot, agent.id);
-  mkdirSync3(dirname3(diffPath), { recursive: true });
+  mkdirSync4(dirname4(diffPath), { recursive: true });
   const payloadOut = {
     agentId: agent.id,
     branch: agent.branch,
@@ -1416,7 +1477,7 @@ async function handleWorktreeRemove(payload, deps) {
     unified,
     nameStatus
   };
-  writeFileSync2(diffPath, JSON.stringify(payloadOut, null, 2), "utf8");
+  writeFileSync3(diffPath, JSON.stringify(payloadOut, null, 2), "utf8");
   let removed = false;
   if (!payload.keep) {
     await manager.remove(agent.path, { force: true });
@@ -1435,9 +1496,9 @@ async function handleWorktreeRemove(payload, deps) {
 }
 
 // src/wrap/pre-spawn-hook.ts
+import { mkdirSync as mkdirSync5 } from "fs";
+import { dirname as dirname5 } from "path";
 init_state();
-import { mkdirSync as mkdirSync4 } from "fs";
-import { dirname as dirname4 } from "path";
 async function handleWorktreeCreate(payload, deps) {
   if (!payload.name) throw new Error("WorktreeCreate payload missing required `name`");
   const now = deps.now ?? (() => /* @__PURE__ */ new Date());
@@ -1447,7 +1508,7 @@ async function handleWorktreeCreate(payload, deps) {
     ...payload.baseRef !== void 0 ? { baseRef: payload.baseRef } : {}
   });
   const agentId = payload.agentId ?? `agent-${created.name}-${now().getTime().toString(36)}`;
-  mkdirSync4(dirname4(created.path), { recursive: true });
+  mkdirSync5(dirname5(created.path), { recursive: true });
   let state = loadState(deps.repoRoot);
   state = upsertAgent(state, {
     id: agentId,
@@ -1459,6 +1520,14 @@ async function handleWorktreeCreate(payload, deps) {
     status: "running"
   });
   saveState(deps.repoRoot, state);
+  logHookEvent(deps.repoRoot, "worktree-create.registered", {
+    agentId,
+    name: created.name,
+    path: created.path,
+    branch: created.branch,
+    baseRef: created.baseRef,
+    payloadKeys: Object.keys(payload)
+  });
   return { path: created.path, branch: created.branch, agentId };
 }
 
@@ -1514,7 +1583,7 @@ function readStdinJson() {
       "expected JSON payload on stdin (hooks pipe their payload \u2014 don't invoke this subcommand interactively)"
     );
   }
-  const buf = readFileSync5(0);
+  const buf = readFileSync6(0);
   if (buf.length > MAX_STDIN_BYTES) {
     throw new Error(`stdin payload exceeds ${MAX_STDIN_BYTES} bytes`);
   }
@@ -1525,8 +1594,8 @@ function readStdinJson() {
 function readPackageVersion() {
   try {
     const thisFile = fileURLToPath3(import.meta.url);
-    const pkgPath = join6(dirname8(thisFile), "..", "package.json");
-    const pkg = JSON.parse(readFileSync5(pkgPath, "utf8"));
+    const pkgPath = join7(dirname9(thisFile), "..", "package.json");
+    const pkg = JSON.parse(readFileSync6(pkgPath, "utf8"));
     return pkg.version ?? "0.0.0";
   } catch {
     return "0.0.0";
