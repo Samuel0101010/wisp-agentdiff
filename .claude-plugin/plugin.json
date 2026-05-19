@@ -7,10 +7,7 @@
     "url": "https://github.com/Samuel0101010"
   },
   "homepage": "https://github.com/Samuel0101010/wisp-agentdiff#readme",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Samuel0101010/wisp-agentdiff"
-  },
+  "repository": "https://github.com/Samuel0101010/wisp-agentdiff",
   "license": "MIT",
   "keywords": [
     "claude-code",
