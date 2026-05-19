@@ -4,7 +4,7 @@
 tabbed TUI review → conflict-gated merge. Issues and PRs welcome on
 everything below.
 
-## Shipping in v1.0–v1.3
+## Shipping in v1.0–v1.4
 
 - [x] Native `WorktreeCreate` / `WorktreeRemove` hook handlers
 - [x] Per-agent diff capture with structured `name-status` + full unified diff
@@ -39,6 +39,21 @@ everything below.
   `.claude/worktrees/wisp-agentdiff/<name>/` directories accumulated
   across sessions. Supports `--dry-run`, `--older-than-hours <N>`
   (default 168), and `--all`.
+- [x] TUI tab labels prefer displayLabel over hex-id name (v1.4.0) —
+  fixes the "wisp-self-test shows as agent-a4925f3·" bug. The
+  transcript correlator populated displayLabel since v1.3, but the
+  TUI rendered name everywhere. Centralized via `agentLabel()`
+  helper; underlying name still used for keys, branches, and file
+  paths.
+- [x] Outer-repo resolution for nested wisp-agentdiff worktrees
+  (v1.4.0) — when a subagent is dispatched while the parent
+  context's cwd is already inside an existing
+  `.claude/worktrees/wisp-agentdiff/agent-<hex>/` worktree, the
+  WorktreeCreate hook now walks up to the outermost non-wisp git
+  root before creating the new worktree directory and writing state.
+  Previously the new worktree was created inside the old one and
+  state landed in an inner state file invisible to the outer
+  `/review-agents` invocation.
 
 ## Known limitations
 
@@ -48,6 +63,8 @@ everything below.
   v1.2.1 sidesteps this by computing the diff live from the worktree
   at review time. The `commitPending` + cached-diff path in
   `WorktreeRemove` remains as a fallback for the orphan-sweep case.
+  v1.4 specifically addresses the nested-worktree variant of this
+  problem — state is now always written to the outermost git root.
 
 ## Probably v1.4+
 

@@ -1,5 +1,6 @@
 import { Box, Text } from "ink";
 import type React from "react";
+import { agentLabel } from "./lib/agent-label.js";
 import type { AgentView } from "./session.js";
 import { decisionColor, decisionGlyph, theme } from "./styles.js";
 
@@ -25,7 +26,7 @@ export const TabBar: React.FC<TabBarProps> = ({ agents, activeIndex, decisions }
             </Text>
             <Text color={active ? "white" : theme.muted} bold={active}>
               {" "}
-              {a.report.agent.displayLabel ?? a.report.agent.name}{" "}
+              {agentLabel(a.report.agent)}{" "}
             </Text>
             <Text color={decisionColor[decision]}>{decisionGlyph[decision]}</Text>
           </Box>

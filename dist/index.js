@@ -51,11 +51,57 @@ var init_debug_log = __esm({
   }
 });
 
+// src/wrap/resolve-repo-root.ts
+import { realpathSync } from "fs";
+import { resolve } from "path";
+import { simpleGit } from "simple-git";
+function normalizePath(p) {
+  const abs = resolve(p);
+  try {
+    return realpathSync.native ? realpathSync.native(abs) : realpathSync(abs);
+  } catch {
+    return abs;
+  }
+}
+function stripInnerWorktreeSegment(path) {
+  const match = path.match(INNER_WORKTREE_RE);
+  if (!match) return null;
+  return path.slice(0, path.length - match[0].length);
+}
+async function resolveOuterRepoRoot(cwd) {
+  let current = normalizePath(cwd);
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    let toplevel;
+    try {
+      const raw = await simpleGit(current).revparse(["--show-toplevel"]);
+      toplevel = raw.trim();
+    } catch {
+      return current;
+    }
+    if (!toplevel) return current;
+    const normalizedToplevel = normalizePath(toplevel);
+    const prefix = stripInnerWorktreeSegment(normalizedToplevel);
+    if (!prefix) {
+      return normalizedToplevel;
+    }
+    current = normalizePath(prefix);
+  }
+  return current;
+}
+var INNER_WORKTREE_RE, MAX_ITERATIONS;
+var init_resolve_repo_root = __esm({
+  "src/wrap/resolve-repo-root.ts"() {
+    "use strict";
+    INNER_WORKTREE_RE = /[/\\]\.claude[/\\]worktrees[/\\]wisp-agentdiff[/\\]agent-[a-f0-9]+$/i;
+    MAX_ITERATIONS = 10;
+  }
+});
+
 // src/wrap/state.ts
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "fs";
-import { dirname as dirname2, join as join2, resolve } from "path";
+import { dirname as dirname2, join as join2, resolve as resolve2 } from "path";
 function stateFilePath(repoRoot) {
-  return resolve(repoRoot, STATE_FILE);
+  return resolve2(repoRoot, STATE_FILE);
 }
 function freshState(repoRoot) {
   return {
@@ -114,13 +160,13 @@ var init_state = __esm({
 });
 
 // src/wrap/worktree-manager.ts
-import { existsSync as existsSync3, mkdirSync as mkdirSync3, realpathSync, rmSync } from "fs";
-import { dirname as dirname3, join as join3, resolve as resolve2 } from "path";
-import { simpleGit } from "simple-git";
-function normalizePath(p) {
-  const abs = resolve2(p);
+import { existsSync as existsSync3, mkdirSync as mkdirSync3, realpathSync as realpathSync2, rmSync } from "fs";
+import { dirname as dirname3, join as join3, resolve as resolve3 } from "path";
+import { simpleGit as simpleGit2 } from "simple-git";
+function normalizePath2(p) {
+  const abs = resolve3(p);
   try {
-    return realpathSync.native ? realpathSync.native(abs) : realpathSync(abs);
+    return realpathSync2.native ? realpathSync2.native(abs) : realpathSync2(abs);
   } catch {
     return abs;
   }
@@ -155,8 +201,8 @@ var init_worktree_manager = __esm({
       git;
       repoRoot;
       constructor(repoRoot) {
-        this.repoRoot = resolve2(repoRoot);
-        this.git = simpleGit(this.repoRoot);
+        this.repoRoot = resolve3(repoRoot);
+        this.git = simpleGit2(this.repoRoot);
       }
       async resolveHead() {
         const sha = (await this.git.revparse(["HEAD"])).trim();
@@ -176,7 +222,7 @@ var init_worktree_manager = __esm({
         }
         mkdirSync3(dirname3(path), { recursive: true });
         await this.git.raw(["worktree", "add", "-b", branch, path, "--", baseRef]);
-        return { name: safeName, path: normalizePath(path), branch, baseRef };
+        return { name: safeName, path: normalizePath2(path), branch, baseRef };
       }
       async list() {
         const out = await this.git.raw(["worktree", "list", "--porcelain"]);
@@ -185,7 +231,7 @@ var init_worktree_manager = __esm({
         for (const line of out.split(/\r?\n/)) {
           if (line.startsWith("worktree ")) {
             if (current.path) entries.push(current);
-            current = { path: normalizePath(line.slice("worktree ".length)), head: "", bare: false };
+            current = { path: normalizePath2(line.slice("worktree ".length)), head: "", bare: false };
           } else if (line.startsWith("HEAD ")) {
             current.head = line.slice("HEAD ".length);
           } else if (line.startsWith("branch ")) {
@@ -202,7 +248,7 @@ var init_worktree_manager = __esm({
        * Used by the post-spawn hook to capture subagent edits before review.
        */
       async commitPending(worktreePath, message) {
-        const sub = simpleGit(worktreePath);
+        const sub = simpleGit2(worktreePath);
         const status = await sub.status();
         if (status.files.length === 0) return null;
         await sub.add(["-A"]);
@@ -249,9 +295,9 @@ var init_worktree_manager = __esm({
 
 // src/wrap/pending-tasks.ts
 import { existsSync as existsSync5, mkdirSync as mkdirSync5, readFileSync as readFileSync3, writeFileSync as writeFileSync4 } from "fs";
-import { dirname as dirname5, resolve as resolve3 } from "path";
+import { dirname as dirname5, resolve as resolve4 } from "path";
 function pendingTasksPath(repoRoot) {
-  return resolve3(repoRoot, PENDING_FILE);
+  return resolve4(repoRoot, PENDING_FILE);
 }
 function freshPending() {
   return { version: 1, tasks: [] };
@@ -345,14 +391,14 @@ __export(install_exports, {
 });
 import { copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync7, readFileSync as readFileSync4 } from "fs";
 import { homedir } from "os";
-import { dirname as dirname7, join as join4, resolve as resolve4 } from "path";
+import { dirname as dirname7, join as join4, resolve as resolve5 } from "path";
 import { fileURLToPath } from "url";
 function defaultTargetDir() {
-  return process.env.CLAUDE_CONFIG_DIR ? resolve4(process.env.CLAUDE_CONFIG_DIR) : join4(homedir(), ".claude");
+  return process.env.CLAUDE_CONFIG_DIR ? resolve5(process.env.CLAUDE_CONFIG_DIR) : join4(homedir(), ".claude");
 }
 function resolvePackageRoot() {
   const thisFile = fileURLToPath(import.meta.url);
-  return resolve4(dirname7(thisFile), "..");
+  return resolve5(dirname7(thisFile), "..");
 }
 function installArtifacts(options = {}) {
   const target = options.targetDir ?? defaultTargetDir();
@@ -440,7 +486,7 @@ var init_conflict_detector = __esm({
 });
 
 // src/merge/approver.ts
-import { simpleGit as simpleGit2 } from "simple-git";
+import { simpleGit as simpleGit3 } from "simple-git";
 async function applyApproved(reports, approvedIds, options) {
   const conflicts = detectConflicts(reports);
   const blocked = approvedConflicts(conflicts, approvedIds);
@@ -451,7 +497,7 @@ async function applyApproved(reports, approvedIds, options) {
   const dryRun = options.dryRun ?? false;
   const deleteBranches = options.deleteBranches ?? true;
   const strategy = options.strategy ?? "no-ff";
-  const git = dryRun ? null : simpleGit2(options.repoRoot);
+  const git = dryRun ? null : simpleGit3(options.repoRoot);
   const outcomes = [];
   for (const r of approved) {
     if (dryRun) {
@@ -944,11 +990,11 @@ var init_jsonl_reader = __esm({
 
 // src/collect/token-tracker.ts
 import { existsSync as existsSync9, readFileSync as readFileSync5 } from "fs";
-import { simpleGit as simpleGit3 } from "simple-git";
+import { simpleGit as simpleGit4 } from "simple-git";
 async function readLiveDiff(agent) {
   if (!existsSync9(agent.path)) return "";
   try {
-    return await simpleGit3(agent.path).raw(["diff", agent.baseRef]);
+    return await simpleGit4(agent.path).raw(["diff", agent.baseRef]);
   } catch {
     return "";
   }
@@ -1004,6 +1050,17 @@ var init_session = __esm({
   }
 });
 
+// src/tui/lib/agent-label.ts
+function agentLabel(agent) {
+  const label = agent.displayLabel?.trim();
+  return label && label.length > 0 ? label : agent.name;
+}
+var init_agent_label = __esm({
+  "src/tui/lib/agent-label.ts"() {
+    "use strict";
+  }
+});
+
 // src/tui/tab-bar.tsx
 import { Box as Box3, Text as Text3 } from "ink";
 import { jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
@@ -1011,6 +1068,7 @@ var TabBar;
 var init_tab_bar = __esm({
   "src/tui/tab-bar.tsx"() {
     "use strict";
+    init_agent_label();
     init_styles();
     TabBar = ({ agents, activeIndex, decisions }) => /* @__PURE__ */ jsx3(Box3, { flexDirection: "row", borderStyle: "round", borderColor: theme.accent, paddingX: 1, children: agents.length === 0 ? /* @__PURE__ */ jsx3(Text3, { color: theme.muted, children: "no subagents recorded \u2014 run a Task first" }) : agents.map((a, i) => {
       const active = i === activeIndex;
@@ -1023,7 +1081,7 @@ var init_tab_bar = __esm({
         ] }),
         /* @__PURE__ */ jsxs3(Text3, { color: active ? "white" : theme.muted, bold: active, children: [
           " ",
-          a.report.agent.displayLabel ?? a.report.agent.name,
+          agentLabel(a.report.agent),
           " "
         ] }),
         /* @__PURE__ */ jsx3(Text3, { color: decisionColor[decision], children: decisionGlyph[decision] })
@@ -1390,9 +1448,9 @@ __export(doctor_exports, {
 });
 import { existsSync as existsSync10, readFileSync as readFileSync6, statSync as statSync2 } from "fs";
 import { homedir as homedir2 } from "os";
-import { dirname as dirname9, join as join6, resolve as resolve5 } from "path";
+import { dirname as dirname9, join as join6, resolve as resolve6 } from "path";
 import { fileURLToPath as fileURLToPath2 } from "url";
-import { simpleGit as simpleGit4 } from "simple-git";
+import { simpleGit as simpleGit5 } from "simple-git";
 function tag(status) {
   switch (status) {
     case "ok":
@@ -1405,10 +1463,10 @@ function tag(status) {
 }
 async function runDoctor(repoRoot) {
   const checks = [];
-  const root = resolve5(repoRoot);
+  const root = resolve6(repoRoot);
   let gitRoot = null;
   try {
-    const out = await simpleGit4(root).revparse(["--show-toplevel"]);
+    const out = await simpleGit5(root).revparse(["--show-toplevel"]);
     gitRoot = out.trim();
     checks.push({
       label: "workspace is a git repo",
@@ -1430,7 +1488,7 @@ async function runDoctor(repoRoot) {
     status: distExists ? "ok" : "fail",
     detail: distExists ? join6(distDir, "index.js") : `expected at ${distDir}`
   });
-  const pluginRootCandidate = resolve5(distDir, "..");
+  const pluginRootCandidate = resolve6(distDir, "..");
   const pluginManifest = join6(pluginRootCandidate, ".claude-plugin", "plugin.json");
   if (existsSync10(pluginManifest)) {
     let version = "unknown";
@@ -1541,13 +1599,13 @@ var prune_exports = {};
 __export(prune_exports, {
   runPrune: () => runPrune
 });
-import { existsSync as existsSync11, readdirSync, realpathSync as realpathSync2, statSync as statSync3 } from "fs";
-import { resolve as resolve6 } from "path";
-import { simpleGit as simpleGit5 } from "simple-git";
+import { existsSync as existsSync11, readdirSync, realpathSync as realpathSync3, statSync as statSync3 } from "fs";
+import { resolve as resolve7 } from "path";
+import { simpleGit as simpleGit6 } from "simple-git";
 function normalize(p) {
-  const abs = resolve6(p);
+  const abs = resolve7(p);
   try {
-    return realpathSync2.native ? realpathSync2.native(abs) : realpathSync2(abs);
+    return realpathSync3.native ? realpathSync3.native(abs) : realpathSync3(abs);
   } catch {
     return abs;
   }
@@ -1562,7 +1620,7 @@ function scanFsWorktrees(basePath) {
   }
   const result = [];
   for (const entry of entries) {
-    const full = resolve6(basePath, entry);
+    const full = resolve7(basePath, entry);
     try {
       const st = statSync3(full);
       if (!st.isDirectory()) continue;
@@ -1585,7 +1643,19 @@ function pathExistsSafely(p) {
   }
 }
 async function runPrune(options) {
-  const repoRoot = resolve6(options.repoRoot);
+  const inputRoot = resolve7(options.repoRoot);
+  const repoRoot = await resolveOuterRepoRoot(inputRoot);
+  if (repoRoot !== inputRoot) {
+    process.stderr.write(
+      `wisp-agentdiff prune: invoked from inside a wisp-agentdiff worktree (${inputRoot}); retargeting to outer repo root ${repoRoot}
+`
+    );
+    logHookEvent(repoRoot, "prune.retargeted", {
+      message: `[v1.4] nested wisp-agentdiff worktree detected; retargeting state from ${inputRoot} to ${repoRoot}`,
+      inputRoot,
+      resolvedRoot: repoRoot
+    });
+  }
   const olderThanHours = options.olderThanHours ?? DEFAULT_OLDER_THAN_HOURS;
   const dryRun = options.dryRun === true;
   const all = options.all === true;
@@ -1659,7 +1729,7 @@ async function runPrune(options) {
     });
     return result;
   }
-  const git = simpleGit5(repoRoot);
+  const git = simpleGit6(repoRoot);
   const droppedAgentIds = /* @__PURE__ */ new Set();
   const removeOnDisk = async (item) => {
     try {
@@ -1751,6 +1821,7 @@ var init_prune = __esm({
   "src/prune.ts"() {
     "use strict";
     init_debug_log();
+    init_resolve_repo_root();
     init_state();
     init_worktree_manager();
     DEFAULT_OLDER_THAN_HOURS = 24 * 7;
@@ -1800,6 +1871,7 @@ import { Command } from "commander";
 
 // src/wrap/post-spawn-hook.ts
 init_debug_log();
+init_resolve_repo_root();
 init_state();
 init_worktree_manager();
 import { existsSync as existsSync4, mkdirSync as mkdirSync4, writeFileSync as writeFileSync3 } from "fs";
@@ -1807,11 +1879,21 @@ import { dirname as dirname4 } from "path";
 async function handleWorktreeRemove(payload, deps) {
   if (!payload.name) throw new Error("WorktreeRemove payload missing required `name`");
   const now = deps.now ?? (() => /* @__PURE__ */ new Date());
-  const manager = deps.manager ?? new WorktreeManager(deps.repoRoot);
-  let state = loadState(deps.repoRoot);
+  const inputRoot = deps.repoRoot;
+  const resolvedRoot = await resolveOuterRepoRoot(inputRoot);
+  if (resolvedRoot !== inputRoot) {
+    logHookEvent(resolvedRoot, "worktree-remove.retargeted", {
+      message: `[v1.4] nested wisp-agentdiff worktree detected; retargeting state from ${inputRoot} to ${resolvedRoot}`,
+      inputRoot,
+      resolvedRoot
+    });
+  }
+  const repoRoot = resolvedRoot;
+  const manager = deps.manager ?? new WorktreeManager(repoRoot);
+  let state = loadState(repoRoot);
   const agent = (payload.agentId ? state.agents.find((a) => a.id === payload.agentId) : void 0) ?? state.agents.find((a) => a.name === payload.name);
   if (!agent) {
-    logHookEvent(deps.repoRoot, "worktree-remove.no-agent", {
+    logHookEvent(repoRoot, "worktree-remove.no-agent", {
       name: payload.name,
       agentIdHint: payload.agentId ?? null,
       knownAgents: state.agents.map((a) => ({ id: a.id, name: a.name }))
@@ -1820,7 +1902,7 @@ async function handleWorktreeRemove(payload, deps) {
   }
   const worktreeExists = existsSync4(agent.path);
   const commitSha = await manager.commitPending(agent.path, "wisp-agentdiff: capture subagent edits").catch((err) => {
-    logHookEvent(deps.repoRoot, "worktree-remove.commit-error", {
+    logHookEvent(repoRoot, "worktree-remove.commit-error", {
       agentId: agent.id,
       path: agent.path,
       error: err instanceof Error ? err.message : String(err)
@@ -1830,7 +1912,7 @@ async function handleWorktreeRemove(payload, deps) {
   const unified = await manager.diffAgainst(agent.branch, agent.baseRef);
   const nameStatus = await manager.diffNameStatus(agent.branch, agent.baseRef);
   const filesChanged = nameStatus.split(/\r?\n/).filter((l) => l.trim().length > 0).length;
-  logHookEvent(deps.repoRoot, "worktree-remove.captured", {
+  logHookEvent(repoRoot, "worktree-remove.captured", {
     agentId: agent.id,
     name: agent.name,
     path: agent.path,
@@ -1840,7 +1922,7 @@ async function handleWorktreeRemove(payload, deps) {
     diffEmpty: unified.length === 0,
     diffBytes: unified.length
   });
-  const diffPath = diffStoragePath(deps.repoRoot, agent.id);
+  const diffPath = diffStoragePath(repoRoot, agent.id);
   mkdirSync4(dirname4(diffPath), { recursive: true });
   const payloadOut = {
     agentId: agent.id,
@@ -1864,13 +1946,14 @@ async function handleWorktreeRemove(payload, deps) {
     status: removed ? "removed" : "captured"
   };
   state = upsertAgent(state, next);
-  saveState(deps.repoRoot, state);
+  saveState(repoRoot, state);
   return { agentId: agent.id, removed, diffPath, filesChanged };
 }
 
 // src/wrap/pre-spawn-hook.ts
 init_debug_log();
 init_pending_tasks();
+init_resolve_repo_root();
 init_state();
 import { mkdirSync as mkdirSync6 } from "fs";
 import { dirname as dirname6 } from "path";
@@ -1927,7 +2010,19 @@ init_worktree_manager();
 async function handleWorktreeCreate(payload, deps) {
   if (!payload.name) throw new Error("WorktreeCreate payload missing required `name`");
   const now = deps.now ?? (() => /* @__PURE__ */ new Date());
-  const manager = deps.manager ?? new WorktreeManager(deps.repoRoot);
+  const inputRoot = deps.repoRoot;
+  const cwdHint = payload.cwd ?? inputRoot;
+  const resolvedRoot = await resolveOuterRepoRoot(cwdHint);
+  if (resolvedRoot !== inputRoot) {
+    logHookEvent(resolvedRoot, "worktree-create.retargeted", {
+      message: `[v1.4] nested wisp-agentdiff worktree detected; retargeting state from ${inputRoot} to ${resolvedRoot}`,
+      inputRoot,
+      cwdHint,
+      resolvedRoot
+    });
+  }
+  const repoRoot = resolvedRoot;
+  const manager = deps.manager ?? new WorktreeManager(repoRoot);
   const created = await manager.create({
     name: payload.name,
     ...payload.baseRef !== void 0 ? { baseRef: payload.baseRef } : {}
@@ -1936,19 +2031,19 @@ async function handleWorktreeCreate(payload, deps) {
   mkdirSync6(dirname6(created.path), { recursive: true });
   if (payload.transcript_path) {
     try {
-      const added = await ingestTranscriptTasks(deps.repoRoot, payload.transcript_path);
-      logHookEvent(deps.repoRoot, "transcript.ingested", {
+      const added = await ingestTranscriptTasks(repoRoot, payload.transcript_path);
+      logHookEvent(repoRoot, "transcript.ingested", {
         added,
         transcript: payload.transcript_path
       });
     } catch (err) {
-      logHookEvent(deps.repoRoot, "transcript.ingest-error", {
+      logHookEvent(repoRoot, "transcript.ingest-error", {
         transcript: payload.transcript_path,
         error: err instanceof Error ? err.message : String(err)
       });
     }
   }
-  const pending = dequeueOldestUnstale(deps.repoRoot);
+  const pending = dequeueOldestUnstale(repoRoot);
   const displayLabel = pending?.subagentType;
   const record = {
     id: agentId,
@@ -1960,14 +2055,14 @@ async function handleWorktreeCreate(payload, deps) {
     status: "running",
     ...displayLabel !== void 0 ? { displayLabel } : {}
   };
-  let state = loadState(deps.repoRoot);
+  let state = loadState(repoRoot);
   state = upsertAgent(state, record);
-  saveState(deps.repoRoot, state);
-  logHookEvent(deps.repoRoot, "worktree-create.label-correlated", {
+  saveState(repoRoot, state);
+  logHookEvent(repoRoot, "worktree-create.label-correlated", {
     matched: displayLabel !== void 0,
     ...displayLabel !== void 0 ? { displayLabel } : {}
   });
-  logHookEvent(deps.repoRoot, "worktree-create.registered", {
+  logHookEvent(repoRoot, "worktree-create.registered", {
     agentId,
     name: created.name,
     path: created.path,

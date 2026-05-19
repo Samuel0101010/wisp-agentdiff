@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { logHookEvent } from "./debug-log.js";
+import { resolveOuterRepoRoot } from "./resolve-repo-root.js";
 import { type AgentRecord, diffStoragePath, loadState, saveState, upsertAgent } from "./state.js";
 import { WorktreeManager } from "./worktree-manager.js";
 
@@ -36,15 +37,29 @@ export async function handleWorktreeRemove(
 ): Promise<WorktreeRemoveResult> {
   if (!payload.name) throw new Error("WorktreeRemove payload missing required `name`");
   const now = deps.now ?? (() => new Date());
-  const manager = deps.manager ?? new WorktreeManager(deps.repoRoot);
 
-  let state = loadState(deps.repoRoot);
+  // Same nested-worktree guard as handleWorktreeCreate: walk out to the outer
+  // repo root so state/diff/debug-log writes target the same root the user
+  // reviews in, never an inner agent-* worktree.
+  const inputRoot = deps.repoRoot;
+  const resolvedRoot = await resolveOuterRepoRoot(inputRoot);
+  if (resolvedRoot !== inputRoot) {
+    logHookEvent(resolvedRoot, "worktree-remove.retargeted", {
+      message: `[v1.4] nested wisp-agentdiff worktree detected; retargeting state from ${inputRoot} to ${resolvedRoot}`,
+      inputRoot,
+      resolvedRoot,
+    });
+  }
+  const repoRoot = resolvedRoot;
+  const manager = deps.manager ?? new WorktreeManager(repoRoot);
+
+  let state = loadState(repoRoot);
   const agent =
     (payload.agentId ? state.agents.find((a) => a.id === payload.agentId) : undefined) ??
     state.agents.find((a) => a.name === payload.name);
 
   if (!agent) {
-    logHookEvent(deps.repoRoot, "worktree-remove.no-agent", {
+    logHookEvent(repoRoot, "worktree-remove.no-agent", {
       name: payload.name,
       agentIdHint: payload.agentId ?? null,
       knownAgents: state.agents.map((a) => ({ id: a.id, name: a.name })),
@@ -56,7 +71,7 @@ export async function handleWorktreeRemove(
   const commitSha = await manager
     .commitPending(agent.path, "wisp-agentdiff: capture subagent edits")
     .catch((err) => {
-      logHookEvent(deps.repoRoot, "worktree-remove.commit-error", {
+      logHookEvent(repoRoot, "worktree-remove.commit-error", {
         agentId: agent.id,
         path: agent.path,
         error: err instanceof Error ? err.message : String(err),
@@ -68,7 +83,7 @@ export async function handleWorktreeRemove(
   const nameStatus = await manager.diffNameStatus(agent.branch, agent.baseRef);
   const filesChanged = nameStatus.split(/\r?\n/).filter((l) => l.trim().length > 0).length;
 
-  logHookEvent(deps.repoRoot, "worktree-remove.captured", {
+  logHookEvent(repoRoot, "worktree-remove.captured", {
     agentId: agent.id,
     name: agent.name,
     path: agent.path,
@@ -79,7 +94,7 @@ export async function handleWorktreeRemove(
     diffBytes: unified.length,
   });
 
-  const diffPath = diffStoragePath(deps.repoRoot, agent.id);
+  const diffPath = diffStoragePath(repoRoot, agent.id);
   mkdirSync(dirname(diffPath), { recursive: true });
   const payloadOut = {
     agentId: agent.id,
@@ -105,7 +120,7 @@ export async function handleWorktreeRemove(
     status: removed ? "removed" : "captured",
   };
   state = upsertAgent(state, next);
-  saveState(deps.repoRoot, state);
+  saveState(repoRoot, state);
 
   return { agentId: agent.id, removed, diffPath, filesChanged };
 }

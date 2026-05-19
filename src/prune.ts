@@ -2,6 +2,7 @@ import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { simpleGit } from "simple-git";
 import { logHookEvent } from "./wrap/debug-log.js";
+import { resolveOuterRepoRoot } from "./wrap/resolve-repo-root.js";
 import { type AgentRecord, loadState, saveState } from "./wrap/state.js";
 import { defaultBasePath } from "./wrap/worktree-manager.js";
 
@@ -83,7 +84,18 @@ function pathExistsSafely(p: string): boolean {
 }
 
 export async function runPrune(options: PruneOptions): Promise<PruneResult> {
-  const repoRoot = resolve(options.repoRoot);
+  const inputRoot = resolve(options.repoRoot);
+  const repoRoot = await resolveOuterRepoRoot(inputRoot);
+  if (repoRoot !== inputRoot) {
+    process.stderr.write(
+      `wisp-agentdiff prune: invoked from inside a wisp-agentdiff worktree (${inputRoot}); retargeting to outer repo root ${repoRoot}\n`,
+    );
+    logHookEvent(repoRoot, "prune.retargeted", {
+      message: `[v1.4] nested wisp-agentdiff worktree detected; retargeting state from ${inputRoot} to ${repoRoot}`,
+      inputRoot,
+      resolvedRoot: repoRoot,
+    });
+  }
   const olderThanHours = options.olderThanHours ?? DEFAULT_OLDER_THAN_HOURS;
   const dryRun = options.dryRun === true;
   const all = options.all === true;
