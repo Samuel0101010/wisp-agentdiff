@@ -1,4 +1,6 @@
 {
-  "WorktreeCreate": "npx -y wisp-agentdiff@latest hook worktree-create",
-  "WorktreeRemove": "npx -y wisp-agentdiff@latest hook worktree-remove"
+  "hooks": {
+    "WorktreeCreate": "npx -y wisp-agentdiff@latest hook worktree-create",
+    "WorktreeRemove": "npx -y wisp-agentdiff@latest hook worktree-remove"
+  }
 }
