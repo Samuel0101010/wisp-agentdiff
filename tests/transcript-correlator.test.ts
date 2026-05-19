@@ -73,7 +73,7 @@ describe("ingestTranscriptTasks", () => {
     expect(added).toBe(0);
   });
 
-  it("ignores tool_uses for tools other than Task", async () => {
+  it("ignores tool_uses for tools other than Task/Agent", async () => {
     const file = join(root, "other-tools.jsonl");
     writeFileSync(
       file,
@@ -85,6 +85,22 @@ describe("ingestTranscriptTasks", () => {
     const added = await ingestTranscriptTasks(root, file);
     expect(added).toBe(0);
     expect(loadPending(root).tasks).toHaveLength(0);
+  });
+
+  it("accepts Claude Code v2.1+ tool_uses named 'Agent' (rename from 'Task')", async () => {
+    const file = join(root, "agent-rename.jsonl");
+    writeFileSync(
+      file,
+      [
+        '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Agent","id":"toolu_v21","input":{"subagent_type":"wisp-self-test","prompt":"go","isolation":"worktree"}}]}}',
+      ].join("\n"),
+      "utf8",
+    );
+    const added = await ingestTranscriptTasks(root, file);
+    expect(added).toBe(1);
+    const tasks = loadPending(root).tasks;
+    expect(tasks[0]?.subagentType).toBe("wisp-self-test");
+    expect(tasks[0]?.toolUseId).toBe("toolu_v21");
   });
 
   it("skips Task entries missing subagent_type or id", async () => {

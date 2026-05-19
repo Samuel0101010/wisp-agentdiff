@@ -12,7 +12,7 @@
         "repo": "Samuel0101010/wisp-agentdiff"
       },
       "description": "Per-agent diff review for Claude Code parallel subagent workflows.",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "category": "developer-tools",
       "tags": ["subagents", "git-worktree", "code-review", "tui", "claude-code"],
       "license": "MIT",

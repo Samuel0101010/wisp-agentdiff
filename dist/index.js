@@ -1986,7 +1986,7 @@ async function ingestTranscriptTasks(repoRoot, transcriptPath, opts = {}) {
     for (const part of content) {
       if (!part || typeof part !== "object") continue;
       const p = part;
-      if (p.type !== "tool_use" || p.name !== "Task") continue;
+      if (p.type !== "tool_use" || p.name !== "Task" && p.name !== "Agent") continue;
       const id = typeof p.id === "string" ? p.id : "";
       const subagentType = typeof p.input?.subagent_type === "string" ? p.input.subagent_type : "";
       if (!id || !subagentType) continue;

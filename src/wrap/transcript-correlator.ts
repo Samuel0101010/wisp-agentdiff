@@ -52,7 +52,9 @@ export async function ingestTranscriptTasks(
     for (const part of content) {
       if (!part || typeof part !== "object") continue;
       const p = part as ToolUsePart;
-      if (p.type !== "tool_use" || p.name !== "Task") continue;
+      // Claude Code v2.1+ writes the subagent-dispatch tool_use as
+      // `name: "Agent"`; older builds called it `"Task"`. Accept both.
+      if (p.type !== "tool_use" || (p.name !== "Task" && p.name !== "Agent")) continue;
       const id = typeof p.id === "string" ? p.id : "";
       const subagentType = typeof p.input?.subagent_type === "string" ? p.input.subagent_type : "";
       if (!id || !subagentType) continue;

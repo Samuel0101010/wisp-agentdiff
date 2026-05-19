@@ -54,6 +54,14 @@ everything below.
   Previously the new worktree was created inside the old one and
   state landed in an inner state file invisible to the outer
   `/review-agents` invocation.
+- [x] Accept Claude Code v2.1+ transcript schema (v1.4.1) — the
+  subagent-dispatch tool_use was renamed from `"name": "Task"` to
+  `"name": "Agent"` in Claude Code v2.1.x transcripts. v1.3's
+  correlator stubbornly filtered by `"Task"` and ingested zero entries
+  from real v2.1 sessions, leaving `displayLabel` empty even when the
+  transcript_path arrived in the WorktreeCreate payload. v1.4.1 accepts
+  both names so the TUI finally shows the subagent_type (e.g.
+  `wisp-self-test`) instead of the hex worktree slug.
 
 ## Known limitations
 
