@@ -87,8 +87,12 @@ That deploys the SKILL and `/review-agents` slash command into
 ```jsonc
 {
   "hooks": {
-    "WorktreeCreate": "wisp-agentdiff hook worktree-create",
-    "WorktreeRemove": "wisp-agentdiff hook worktree-remove"
+    "WorktreeCreate": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "wisp-agentdiff hook worktree-create" }] }
+    ],
+    "WorktreeRemove": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "wisp-agentdiff hook worktree-remove" }] }
+    ]
   }
 }
 ```

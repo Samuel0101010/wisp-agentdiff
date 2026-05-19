@@ -1,6 +1,26 @@
 {
   "hooks": {
-    "WorktreeCreate": "npx -y wisp-agentdiff@latest hook worktree-create",
-    "WorktreeRemove": "npx -y wisp-agentdiff@latest hook worktree-remove"
+    "WorktreeCreate": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx -y wisp-agentdiff@latest hook worktree-create"
+          }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx -y wisp-agentdiff@latest hook worktree-remove"
+          }
+        ]
+      }
+    ]
   }
 }
